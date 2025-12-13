@@ -1,0 +1,40 @@
+# Causal-VSE-PC - 因果推断驱动的可验证语义加密
+# Causal Verifiable Semantic Encryption with Privacy Control
+# Version: 2.0.0
+
+# ===== 环境要求 =====
+# Python >= 3.10
+# CUDA >= 11.8 (推荐)
+
+# ===== 核心依赖 =====
+torch>=2.0.0
+torchvision>=0.15.0
+
+# ===== 密码学 =====
+cryptography>=41.0.0          # ChaCha20流加密、密钥派生
+
+# ===== 图像处理 =====
+opencv-python>=4.8.0
+Pillow>=9.5.0
+
+# ===== 科学计算 =====
+numpy>=1.24.0
+scipy>=1.10.0                 # 统计检验、数值计算
+PyWavelets>=1.4.1             # 小波变换（DWT频域路径）
+
+# ===== 可视化 =====
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# ===== 工具 =====
+tqdm>=4.65.0
+pyyaml>=6.0
+
+# ===== 评测（可选） =====
+# facenet-pytorch>=2.5.2     # 人脸识别攻击评估
+# timm>=0.9.0                # 视觉模型库
+
+# ===== 开发工具（可选） =====
+# pytest>=7.0.0              # 单元测试
+# black>=23.0.0              # 代码格式化
+# flake8>=6.0.0              # 代码检查

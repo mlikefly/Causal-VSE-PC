@@ -1,0 +1,46 @@
+# SCNE 基础配置 - 低资源环境
+# 适用于: 快速测试、内存受限环境（2GB GPU）
+
+mode: basic
+device: cuda
+
+# 简化的加密设置
+encryption:
+  privacy_level: 0.6
+  use_frequency: false  # 关闭频域控制
+  use_diffusion: false  # 关闭扩散
+  use_gnn: false        # 关闭GNN策略
+  use_semantic: false   # 关闭语义分析
+  arnold_iterations: 5  # 减少迭代次数
+  chaos_complexity: low
+
+# 低资源性能设置
+performance:
+  batch_size: 2
+  micro_batch_size: 1
+  use_amp: true        # 混合精度以节省内存
+  memory_fraction: 0.5
+  num_workers: 1
+
+# 快速训练
+training:
+  learning_rate: 0.001
+  epochs: 5
+  gradient_accumulation: 8  # 更多梯度累积
+  
+paths:
+  data_dir: data
+  weights_dir: src/weights
+  results_dir: results
+
+advanced:
+  use_safap: false
+  use_fsac: false
+  debug: false
+  verbose: false  # 减少输出
+
+dataset:
+  name: CelebA-HQ
+  image_size: 128  # 更小的图像尺寸
+  augmentation: false
+  normalize: true

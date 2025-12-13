@@ -1,0 +1,78 @@
+# SCNE 高级配置 - 最佳性能
+# 适用于: 高性能GPU（8GB+）、追求最高安全性
+
+mode: advanced
+device: cuda
+
+# 完整的加密功能
+encryption:
+  privacy_level: 1.0    # 最高隐私级别
+  use_frequency: true
+  use_diffusion: true
+  use_gnn: true
+  use_semantic: true
+  arnold_iterations: 15  # 更多迭代
+  arnold_a: 2
+  arnold_b: 1
+  chaos_complexity: high
+  chaos_dimension: 5
+
+# 高性能设置
+performance:
+  batch_size: 8
+  micro_batch_size: 4
+  use_amp: true
+  cache_size: 512
+  memory_fraction: 0.9  # 使用更多GPU内存
+  num_workers: 4
+
+# 精细训练
+training:
+  learning_rate: 0.00005
+  epochs: 50
+  gradient_accumulation: 2
+  gradient_clip: 0.5
+  optimizer: adamw
+  scheduler: cosine
+  warmup_steps: 1000
+
+paths:
+  data_dir: data
+  weights_dir: src/weights
+  results_dir: results
+  logs_dir: logs
+
+# 启用高级功能
+advanced:
+  use_safap: true   # 语义感知频率对抗
+  use_fsac: false   # 特征空间对抗（资源密集）
+  debug: false
+  verbose: true
+  save_frequency: 1  # 每个epoch保存
+
+# 完整评估
+evaluation:
+  calculate_metrics: true
+  metrics:
+    - npcr
+    - uaci
+    - entropy
+    - correlation
+    - chi_square
+    - ssim
+    - psnr
+  attack_tests: true  # 进行攻击测试
+  
+dataset:
+  name: CelebA-HQ
+  image_size: 512  # 高分辨率
+  augmentation: true
+  normalize: true
+  shuffle: true
+  
+# 对抗训练设置
+adversarial:
+  enable: true
+  attack_strength: 0.1
+  defense_strength: 0.8
+  num_adversarial_steps: 5

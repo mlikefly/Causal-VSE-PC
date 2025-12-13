@@ -1,0 +1,67 @@
+# SCNE 调试配置 - 快速调试
+# 适用于: 开发测试、调试新功能
+
+mode: debug
+device: cpu  # 使用CPU方便调试
+
+# 最简化设置
+encryption:
+  privacy_level: 0.5
+  use_frequency: false
+  use_diffusion: false
+  use_gnn: false
+  use_semantic: false
+  arnold_iterations: 2
+  chaos_complexity: low
+  chaos_dimension: 2
+
+# 最小批量
+performance:
+  batch_size: 1
+  micro_batch_size: 1
+  use_amp: false  # 关闭混合精度便于调试
+  cache_size: 64
+  memory_fraction: 0.3
+  num_workers: 0  # 主线程处理
+
+# 单次迭代
+training:
+  learning_rate: 0.01
+  epochs: 1
+  gradient_accumulation: 1
+  gradient_clip: 10.0
+
+paths:
+  data_dir: data
+  weights_dir: src/weights
+  results_dir: results/debug
+  logs_dir: logs/debug
+
+advanced:
+  use_safap: false
+  use_fsac: false
+  debug: true      # 启用调试模式
+  verbose: true    # 详细输出
+  save_frequency: 1
+
+evaluation:
+  calculate_metrics: true
+  metrics:
+    - npcr
+    - uaci
+  attack_tests: false
+  
+dataset:
+  name: CelebA-HQ
+  image_size: 64   # 很小的图像便于快速测试
+  augmentation: false
+  normalize: false  # 关闭归一化便于调试
+  shuffle: false    # 固定顺序便于重现
+
+# 调试选项
+debug_options:
+  deterministic_seed: 42
+  print_shapes: true
+  save_intermediates: true
+  check_gradients: true
+  profile_memory: false

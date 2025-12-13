@@ -1,0 +1,66 @@
+# Causal-VSE-PC 默认配置文件
+# 更新日期: 2024-12-13
+
+# ===== 基础设置 =====
+device: cuda                    # cuda / cpu
+deterministic: true             # 确定性模式（可复现）
+
+# ===== 加密参数 =====
+encryption:
+  # 隐私级别 [0.0 - 1.0]
+  # 0.3: 轻度加密，保留语义
+  # 0.7: 中度加密，平衡隐私与效用
+  # 1.0: 强加密，完全混淆
+  privacy_level: 0.7
+  
+  # 加密层开关
+  use_frequency: true           # Layer 2: 频域加密
+  use_fft: true                 # 使用FFT（比DWT快）
+  enable_crypto_wrap: true      # Layer 3: 字节级加密
+  
+  # Arnold变换参数（Layer 1）
+  arnold_iterations: 3
+  
+  # 语义保持模式
+  semantic_preserving: false
+
+# ===== 因果分析参数 =====
+causal:
+  use_history_baseline: true    # 使用历史基线
+  confidence_interval: 0.95     # 置信区间
+  
+  # 隐私预算分配
+  privacy_budget:
+    sensitive: 0.9              # 敏感区域
+    task: 0.3                   # 任务相关区域
+    background: 0.0             # 背景区域
+
+# ===== 数据设置 =====
+data:
+  root_dir: data/CelebA-HQ
+  image_size: 256
+  batch_size: 32
+  num_workers: 4
+
+# ===== 路径配置 =====
+paths:
+  data_dir: data
+  weights_dir: src/weights
+  results_dir: results
+
+# ===== 评估设置 =====
+evaluation:
+  metrics:
+    - entropy                   # 信息熵 ≥ 7.9
+    - npcr                      # 像素变化率 ≥ 99.5%
+    - uaci                      # 平均强度变化 30-36%
+    - correlation               # 相关性 |r| < 0.1
+    - chi_square                # 卡方检验 p > 0.05
+  
+  # 安全标准
+  standards:
+    entropy_min: 7.9
+    npcr_min: 99.5
+    uaci_min: 30.0
+    uaci_max: 36.0
+    correlation_max: 0.1
