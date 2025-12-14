@@ -137,15 +137,17 @@ scripts/
 
 ```
 docs/
-├── Causal-VSE-PC_项目总览.md        # 项目总览
-├── Causal-VSE-PC_工作流程.md        # 工作流程
-├── Causal-VSE-PC_数据流向.md        # 数据流向
-├── Causal-VSE-PC_数据集分析与使用.md # 数据集分析
-├── Causal-VSE-PC_实现计划.md        # 实现计划
-├── Causal-VSE-PC_目标与指标.md      # 目标与指标
-├── Causal-VSE-PC_理论证明.md        # 理论证明
-├── literature_review_2015_2025.md   # 文献综述
-└── 项目开发日志.md                   # 开发日志
+├── project_overview.md              # 项目总览 (Project Overview)
+├── workflow.md                      # 工作流程 (Workflow)
+├── data_flow.md                     # 数据流向 (Data Flow)
+├── dataset_analysis.md              # 数据集分析 (Dataset Analysis)
+├── implementation_plan.md           # 实现计划 (Implementation Plan)
+├── goals_and_metrics.md             # 目标与指标 (Goals & Metrics)
+├── theoretical_proof.md             # 理论证明 (Theoretical Proof)
+├── literature_review_2015_2025.md   # 文献综述 (Literature Review)
+├── development_log.md               # 开发日志 (Development Log)
+└── papers/                          # 参考论文
+    └── .gitkeep
 ```
 
 ---
