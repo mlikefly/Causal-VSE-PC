@@ -448,9 +448,23 @@ class FrequencySemanticCipherOptimized(nn.Module):
         device = encrypted.device
         B, C, H, W = encrypted.shape
         
-        # 关键修复：加密时不再归一化，解密时也不需要反归一化
-        # 直接使用加密后的图像
-        pre = encrypted
+        # 关键修复：加密时做了归一化，解密时需要先反归一化
+        # 从fft_info恢复仿射参数
+        affine_min_list = fft_info.get('affine_min_list', None)
+        affine_scale_list = fft_info.get('affine_scale_list', None)
+        
+        if affine_min_list is not None and affine_scale_list is not None:
+            # 反归一化：pre = encrypted * scale + min
+            pre_list = []
+            for b in range(B):
+                min_val = affine_min_list[b] if b < len(affine_min_list) else 0.0
+                scale_val = affine_scale_list[b] if b < len(affine_scale_list) else 1.0
+                pre_b = encrypted[b] * scale_val + min_val
+                pre_list.append(pre_b)
+            pre = torch.stack(pre_list, dim=0)
+        else:
+            # 兼容旧版：无仿射参数时直接使用
+            pre = encrypted
 
         spec = torch.fft.rfft2(pre)
         mag = torch.abs(spec)

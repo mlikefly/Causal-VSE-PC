@@ -106,8 +106,8 @@ def calculate_psnr(original: torch.Tensor, reconstructed: torch.Tensor) -> float
 def calculate_ssim(original: torch.Tensor, reconstructed: torch.Tensor) -> float:
     """计算SSIM（结构相似性）- 简化版本"""
     # 简化实现，实际应使用skimage.metrics.structural_similarity
-    orig = original.cpu().numpy().flatten()
-    recon = reconstructed.cpu().numpy().flatten()
+    orig = original.detach().cpu().numpy().flatten()
+    recon = reconstructed.detach().cpu().numpy().flatten()
     
     mu_x = np.mean(orig)
     mu_y = np.mean(recon)
@@ -149,9 +149,9 @@ def evaluate_security(
     Returns:
         metrics: 安全指标字典
     """
-    # 转换为numpy float格式
-    orig_f = original[sample_idx, 0].cpu().numpy()
-    enc_f = encrypted[sample_idx, 0].cpu().numpy()
+    # 转换为numpy float格式（添加detach()避免梯度错误）
+    orig_f = original[sample_idx, 0].detach().cpu().numpy()
+    enc_f = encrypted[sample_idx, 0].detach().cpu().numpy()
     
     # 根据是否 q16 wrap 选择正确的转换方式
     if is_q16_wrap:
@@ -323,29 +323,29 @@ def visualize_encryption_results(
     fig1.suptitle('Encryption Effect Comparison', fontsize=14, fontweight='bold')
     
     # 第一行：原始图像和不同隐私级别的加密图像
-    orig_img = original[sample_idx, 0].cpu().numpy()
+    orig_img = original[sample_idx, 0].detach().cpu().numpy()
     axes1[0, 0].imshow(orig_img, cmap='gray', vmin=0, vmax=1)
     axes1[0, 0].set_title('Original')
     axes1[0, 0].axis('off')
     
     privacy_levels = sorted([k for k in encrypted_dict.keys() if k > 0])[:3]
     for i, level in enumerate(privacy_levels):
-        enc_img = encrypted_dict[level][sample_idx, 0].cpu().numpy()
+        enc_img = encrypted_dict[level][sample_idx, 0].detach().cpu().numpy()
         axes1[0, i+1].imshow(enc_img, cmap='gray', vmin=0, vmax=1)
         axes1[0, i+1].set_title(f'Privacy={level:.1f}')
         axes1[0, i+1].axis('off')
     
     # 第二行：语义掩码、隐私预算图、解密图像、差异图
-    axes1[1, 0].imshow(semantic_mask[sample_idx, 0].cpu().numpy(), cmap='jet', vmin=0, vmax=1)
+    axes1[1, 0].imshow(semantic_mask[sample_idx, 0].detach().cpu().numpy(), cmap='jet', vmin=0, vmax=1)
     axes1[1, 0].set_title('Semantic Mask')
     axes1[1, 0].axis('off')
     
-    axes1[1, 1].imshow(privacy_map[sample_idx, 0].cpu().numpy(), cmap='hot', vmin=0, vmax=1)
+    axes1[1, 1].imshow(privacy_map[sample_idx, 0].detach().cpu().numpy(), cmap='hot', vmin=0, vmax=1)
     axes1[1, 1].set_title('Privacy Budget')
     axes1[1, 1].axis('off')
     
     if decrypted is not None:
-        dec_img = decrypted[sample_idx, 0].cpu().numpy()
+        dec_img = decrypted[sample_idx, 0].detach().cpu().numpy()
         axes1[1, 2].imshow(dec_img, cmap='gray', vmin=0, vmax=1)
         axes1[1, 2].set_title('Decrypted')
         axes1[1, 2].axis('off')
