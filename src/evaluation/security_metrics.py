@@ -20,7 +20,51 @@ from typing import Dict, Tuple
 
 
 class SecurityMetrics:
-    """安全性指标计算"""
+    """安全性指标计算
+    
+    重要说明（两视图架构）：
+    - Z 视图：结构可用的隐私变换表示（用于 ML 推理，评估任务性能/攻击效果）
+    - C 视图：存储/传输的强加密（ChaCha20/AEAD，评估密码学随机性）
+    
+    评估时需要区分：
+    - 对 Z：看任务性能 + 攻击效果 + 隐私-可用性 Pareto
+    - 对 C：看密码学/随机性/完整性（NIST、卡方等）
+    """
+    
+    @staticmethod
+    def q16_to_uint8(float_image: np.ndarray, method: str = 'high8') -> np.ndarray:
+        """将 q16 wrap 后的 float [0,1] 图像正确转换为 uint8
+        
+        问题背景：
+        q16 wrap 产生的是 uint16 密文 ∈ [0,65535]，存储为 float = q_ct/65535
+        如果直接 float*255 再 astype(uint8)，会导致：
+        - 只有 q_ct==65535 时才落到 255 桶（几乎不会）
+        - 直方图严重不均匀 → 卡方必挂
+        
+        Args:
+            float_image: [0,1] 范围的浮点图像（来自 q16 wrap）
+            method: 转换方法
+                - 'high8': 取 uint16 的高 8 位（推荐，保持均匀性）
+                - 'round': 四舍五入到 [0,255]（会有轻微偏差）
+        
+        Returns:
+            uint8 图像
+        """
+        if method == 'high8':
+            # 先还原 uint16，再取高 8 位
+            qmax = 65535
+            q_ct = np.round(np.clip(float_image, 0, 1) * qmax).astype(np.uint16)
+            return (q_ct >> 8).astype(np.uint8)
+        elif method == 'round':
+            # 四舍五入（有轻微偏差，但可接受）
+            return np.clip(np.round(float_image * 255), 0, 255).astype(np.uint8)
+        else:
+            raise ValueError(f"Unknown method: {method}")
+    
+    @staticmethod
+    def float_to_uint8(float_image: np.ndarray) -> np.ndarray:
+        """将 [0,1] 浮点图像转换为 uint8（标准方法，用于非 wrap 图像）"""
+        return np.clip(np.round(float_image * 255), 0, 255).astype(np.uint8)
     
     @staticmethod
     def calculate_entropy(image: np.ndarray) -> float:
@@ -151,18 +195,31 @@ class SecurityMetrics:
     @staticmethod
     def evaluate_image(
         original: np.ndarray, 
-        encrypted: np.ndarray
+        encrypted: np.ndarray,
+        is_q16_wrap: bool = False
     ) -> Dict[str, float]:
         """
         评估单张图像的所有指标
         
         Args:
-            original: 原始图像
-            encrypted: 加密图像
+            original: 原始图像（uint8 或 float [0,1]）
+            encrypted: 加密图像（uint8 或 float [0,1]）
+            is_q16_wrap: 加密图像是否来自 q16 wrap（影响 uint8 转换方式）
         
         Returns:
             metrics: 指标字典
         """
+        # 确保输入是 uint8
+        if original.dtype != np.uint8:
+            original = SecurityMetrics.float_to_uint8(original)
+        
+        if encrypted.dtype != np.uint8:
+            if is_q16_wrap:
+                # q16 wrap：使用高 8 位方法保持均匀性
+                encrypted = SecurityMetrics.q16_to_uint8(encrypted, method='high8')
+            else:
+                encrypted = SecurityMetrics.float_to_uint8(encrypted)
+        
         metrics = {}
         
         # 信息熵
@@ -210,12 +267,15 @@ class SecurityMetrics:
 
     @staticmethod
     def nist_monobit_test(image: np.ndarray, alpha: float = 0.01) -> Tuple[float, bool]:
-        """NIST SP800-22 单比特频率测试（Monobit）。返回 (p, pass)。"""
-        bits = SecurityMetrics._image_bits(image)
+        """NIST SP800-22 单比特频率测试（Monobit）。返回 (p, pass)。
+        
+        修复：将 bits 转为 int16 避免 uint8 下溢（2*0-1=-1 会变成 255）
+        """
+        bits = SecurityMetrics._image_bits(image).astype(np.int16)  # 修复：避免uint8下溢
         n = bits.size
         if n == 0:
             return float('nan'), False
-        s = np.sum(2 * bits - 1)
+        s = np.sum(2 * bits - 1, dtype=np.int64)  # 修复：使用int64累加
         sobs = abs(s) / math.sqrt(n)
         p = math.erfc(sobs / math.sqrt(2.0))
         return float(p), bool(p > alpha)

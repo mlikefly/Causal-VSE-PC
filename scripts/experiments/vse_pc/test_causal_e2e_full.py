@@ -130,25 +130,41 @@ def calculate_ssim(original: torch.Tensor, reconstructed: torch.Tensor) -> float
 def evaluate_security(
     original: torch.Tensor,
     encrypted: torch.Tensor,
-    sample_idx: int = 0
+    sample_idx: int = 0,
+    is_q16_wrap: bool = True
 ) -> Dict:
     """
     评估加密的安全性指标
+    
+    重要说明（两视图架构）：
+    - 如果 is_q16_wrap=True（C视图）：使用 q16→uint8 高8位转换，评估密码学随机性
+    - 如果 is_q16_wrap=False（Z视图）：使用标准转换，评估隐私变换效果
     
     Args:
         original: 原始图像 [B, 1, H, W]
         encrypted: 加密图像 [B, 1, H, W]
         sample_idx: 要评估的样本索引
+        is_q16_wrap: 是否来自 q16 wrap（影响 uint8 转换方式）
     
     Returns:
         metrics: 安全指标字典
     """
-    # 转换为numpy uint8格式
-    orig_np = (original[sample_idx, 0].cpu().numpy() * 255).astype(np.uint8)
-    enc_np = (encrypted[sample_idx, 0].cpu().numpy() * 255).astype(np.uint8)
+    # 转换为numpy float格式
+    orig_f = original[sample_idx, 0].cpu().numpy()
+    enc_f = encrypted[sample_idx, 0].cpu().numpy()
+    
+    # 根据是否 q16 wrap 选择正确的转换方式
+    if is_q16_wrap:
+        # C视图：q16 wrap 后的密文，使用高8位转换保持均匀性
+        orig_np = SecurityMetrics.float_to_uint8(orig_f)
+        enc_np = SecurityMetrics.q16_to_uint8(enc_f, method='high8')
+    else:
+        # Z视图：隐私变换表示，使用标准转换
+        orig_np = SecurityMetrics.float_to_uint8(orig_f)
+        enc_np = SecurityMetrics.float_to_uint8(enc_f)
     
     # 使用SecurityMetrics计算所有指标
-    metrics = SecurityMetrics.evaluate_image(orig_np, enc_np)
+    metrics = SecurityMetrics.evaluate_image(orig_np, enc_np, is_q16_wrap=is_q16_wrap)
     
     # 检查是否满足安全标准
     checks = SecurityMetrics.check_security_standards(metrics)
@@ -157,7 +173,8 @@ def evaluate_security(
         'metrics': metrics,
         'checks': checks,
         'original_np': orig_np,
-        'encrypted_np': enc_np
+        'encrypted_np': enc_np,
+        'view_type': 'C (crypto)' if is_q16_wrap else 'Z (transform)'
     }
 
 
@@ -642,57 +659,82 @@ def main():
     print(f"  因果建议: {causal_result['suggestion']['privacy_budget']}")
     print(f"  隐私预算范围: [{privacy_map.min():.3f}, {privacy_map.max():.3f}]")
     
-    # ===== 5. 多强度加密测试 =====
-    print("\n[5/8] 多强度加密测试...")
+    # ===== 5. 多强度加密测试（两视图架构） =====
+    print("\n[5/8] 多强度加密测试（两视图架构）...")
+    print("  说明：")
+    print("    - Z视图（enable_crypto_wrap=False）：隐私变换表示，用于ML推理")
+    print("    - C视图（enable_crypto_wrap=True）：强加密密文，用于存储/传输")
     
-    # 先测试禁用频域时的MAE差异（验证Layer 1是否正常）
-    print("\n  [对比测试] 禁用频域加密:")
-    cipher_nofreq = SCNECipherAPI(
+    # ===== Z视图：隐私变换（用于ML推理和攻击评估） =====
+    print("\n  [Z视图] 隐私变换（enable_crypto_wrap=False）:")
+    cipher_z = SCNECipherAPI(
         password=password,
         image_size=image_size,
         device=device,
-        use_frequency=False  # 禁用频域
+        use_frequency=True,
+        use_fft=True,
+        enable_crypto_wrap=False  # 关闭 wrap，保持可用性
     )
-    for level in [0.3, 0.5, 0.7, 1.0]:
-        enc_nf, _ = cipher_nofreq.encrypt_simple(images, privacy_level=level, semantic_preserving=False)
-        mae_nf = (enc_nf - images).abs().mean().item()
-        print(f"    privacy_level={level}: MAE={mae_nf:.4f}")
     
-    print("\n  [正式测试] 启用频域加密:")
     privacy_levels = [0.0, 0.3, 0.5, 0.7, 1.0]
-    encrypted_dict = {}
-    enc_info_dict = {}
+    encrypted_dict_z = {}  # Z视图加密结果
+    enc_info_dict_z = {}
     
     for level in privacy_levels:
         if level == 0.0:
-            encrypted_dict[level] = images.clone()
-            enc_info_dict[level] = {'method': 'no_encryption'}
+            encrypted_dict_z[level] = images.clone()
+            enc_info_dict_z[level] = {'method': 'no_encryption'}
         else:
             try:
-                # 传递semantic_mask以实现区域差异化加密
-                # 统一使用semantic_preserving=False，避免不同模式干扰对比
-                encrypted, enc_info = cipher.encrypt_simple(
+                encrypted, enc_info = cipher_z.encrypt_simple(
                     images,
                     privacy_level=level,
                     semantic_preserving=False,
-                    mask=semantic_mask  # 传递语义掩码
+                    mask=semantic_mask
                 )
-                encrypted_dict[level] = encrypted
-                enc_info_dict[level] = enc_info
+                encrypted_dict_z[level] = encrypted
+                enc_info_dict_z[level] = enc_info
                 mae = (encrypted - images).abs().mean().item()
-                print(f"    隐私级别 {level:.1f}: MAE={mae:.4f}")
+                print(f"    privacy_level={level:.1f}: MAE={mae:.4f}")
             except Exception as e:
-                print(f"    隐私级别 {level:.1f}: 加密失败 - {e}")
-                encrypted_dict[level] = images.clone()
-                enc_info_dict[level] = {'method': 'failed'}
+                print(f"    privacy_level={level:.1f}: 加密失败 - {e}")
+                encrypted_dict_z[level] = images.clone()
+                enc_info_dict_z[level] = {'method': 'failed'}
     
-    # ===== 6. ML推理与因果效应 =====
-    print("\n[6/8] ML推理与因果效应计算...")
+    # ===== C视图：强加密（用于密码学评估） =====
+    print("\n  [C视图] 强加密（enable_crypto_wrap=True）:")
+    encrypted_dict_c = {}  # C视图加密结果
+    enc_info_dict_c = {}
+    
+    for level in [1.0]:  # C视图只测试最高隐私级别
+        try:
+            encrypted, enc_info = cipher.encrypt_simple(
+                images,
+                privacy_level=level,
+                semantic_preserving=False,
+                mask=semantic_mask
+            )
+            encrypted_dict_c[level] = encrypted
+            enc_info_dict_c[level] = enc_info
+            mae = (encrypted - images).abs().mean().item()
+            print(f"    privacy_level={level:.1f}: MAE={mae:.4f} (含ChaCha20 wrap)")
+        except Exception as e:
+            print(f"    privacy_level={level:.1f}: 加密失败 - {e}")
+            encrypted_dict_c[level] = images.clone()
+            enc_info_dict_c[level] = {'method': 'failed'}
+    
+    # 兼容后续代码：使用Z视图作为主要加密结果
+    encrypted_dict = encrypted_dict_z
+    enc_info_dict = enc_info_dict_z
+    
+    # ===== 6. ML推理与因果效应（使用Z视图） =====
+    print("\n[6/8] ML推理与因果效应计算（Z视图）...")
+    print("  说明：使用Z视图（无crypto_wrap）进行ML推理，验证隐私-可用性权衡")
     
     performance_results = {}
     with torch.no_grad():
         for level in privacy_levels:
-            encrypted = encrypted_dict[level]
+            encrypted = encrypted_dict_z[level]  # 使用Z视图
             logits = classifier(encrypted)
             preds = logits.argmax(dim=1)
             correct = (preds == labels).float()
@@ -717,23 +759,39 @@ def main():
     if 'ci_lower' in causal_report['ate']:
         print(f"  95% CI: [{causal_report['ate']['ci_lower']:.4f}, {causal_report['ate']['ci_upper']:.4f}]")
     
-    # ===== 7. 安全性评估 =====
-    print("\n[7/8] 安全性评估...")
+    # ===== 7. 安全性评估（两视图分离） =====
+    print("\n[7/8] 安全性评估（两视图分离）...")
     
-    # 选择最高隐私级别进行安全评估
-    security_results = evaluate_security(images, encrypted_dict[1.0], sample_idx=0)
+    # ===== Z视图安全评估（隐私变换效果） =====
+    print("\n  [Z视图] 隐私变换效果评估:")
+    security_results_z = evaluate_security(
+        images, encrypted_dict_z[1.0], sample_idx=0, is_q16_wrap=False
+    )
+    print(f"    熵: {security_results_z['metrics']['entropy_encrypted']:.4f} bits")
+    print(f"    NPCR: {security_results_z['metrics']['npcr']:.2f}%")
+    print(f"    UACI: {security_results_z['metrics']['uaci']:.2f}%")
+    print(f"    水平相关性: {security_results_z['metrics']['corr_encrypted_horizontal']:.4f}")
     
-    # 打印安全报告
-    SecurityMetrics.print_report(security_results['metrics'], security_results['checks'])
+    # ===== C视图安全评估（密码学随机性） =====
+    print("\n  [C视图] 密码学随机性评估（含ChaCha20 wrap）:")
+    security_results_c = evaluate_security(
+        images, encrypted_dict_c[1.0], sample_idx=0, is_q16_wrap=True
+    )
     
-    # 解密验证
-    print("\n解密验证...")
+    # 打印C视图完整安全报告
+    SecurityMetrics.print_report(security_results_c['metrics'], security_results_c['checks'])
+    
+    # 使用C视图作为主要安全结果（用于后续报告）
+    security_results = security_results_c
+    
+    # ===== 解密验证（Z视图） =====
+    print("\n解密验证（Z视图）...")
     decryption_quality = None
     try:
         mask = torch.ones_like(images)
-        decrypted = cipher.cipher.decrypt(
-            encrypted_dict[1.0],
-            enc_info_dict[1.0],
+        decrypted = cipher_z.cipher.decrypt(
+            encrypted_dict_z[1.0],
+            enc_info_dict_z[1.0],
             mask,
             password=password
         )
@@ -775,17 +833,27 @@ def main():
     print("测试完成!")
     print("=" * 70)
     
-    print(f"\n关键结果:")
-    print(f"  - 原始准确率: {performance_results[0.0]['accuracy']:.3f}")
-    print(f"  - 加密准确率(1.0): {performance_results[1.0]['accuracy']:.3f}")
-    print(f"  - ATE: {causal_report['ate']['ate']:.4f}")
-    print(f"  - NPCR: {security_results['metrics']['npcr']:.2f}%")
-    print(f"  - UACI: {security_results['metrics']['uaci']:.2f}%")
-    print(f"  - 熵: {security_results['metrics']['entropy_encrypted']:.4f} bits")
+    print(f"\n关键结果（两视图架构）:")
+    print(f"\n  [Z视图 - 隐私变换/ML推理]")
+    print(f"    - 原始准确率: {performance_results[0.0]['accuracy']:.3f}")
+    print(f"    - 加密准确率(0.3): {performance_results[0.3]['accuracy']:.3f}")
+    print(f"    - 加密准确率(0.7): {performance_results[0.7]['accuracy']:.3f}")
+    print(f"    - 加密准确率(1.0): {performance_results[1.0]['accuracy']:.3f}")
+    print(f"    - ATE: {causal_report['ate']['ate']:.4f}")
+    print(f"    - 熵(Z): {security_results_z['metrics']['entropy_encrypted']:.4f} bits")
+    print(f"    - NPCR(Z): {security_results_z['metrics']['npcr']:.2f}%")
     
-    passed = sum(security_results['checks'].values())
-    total = len(security_results['checks'])
-    print(f"  - 安全指标: {passed}/{total} 通过")
+    print(f"\n  [C视图 - 密码学安全/存储传输]")
+    print(f"    - 熵(C): {security_results_c['metrics']['entropy_encrypted']:.4f} bits")
+    print(f"    - NPCR(C): {security_results_c['metrics']['npcr']:.2f}%")
+    print(f"    - UACI(C): {security_results_c['metrics']['uaci']:.2f}%")
+    print(f"    - 卡方p值: {security_results_c['metrics']['chi2_p_value']:.4f}")
+    print(f"    - NIST Monobit p: {security_results_c['metrics'].get('nist_monobit_p', 0):.4f}")
+    print(f"    - NIST Runs p: {security_results_c['metrics'].get('nist_runs_p', 0):.4f}")
+    
+    passed = sum(security_results_c['checks'].values())
+    total = len(security_results_c['checks'])
+    print(f"    - 安全指标: {passed}/{total} 通过")
     
     print(f"\n结果已保存到: {result_dir}")
     
