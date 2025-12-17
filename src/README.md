@@ -5,7 +5,7 @@
 ```
 src/
 ├── cipher/                   # 加密器模块
-│   └── scne_cipher.py        # SCNE主加密器（统一接口）
+│   └── scne_cipher.py        # SCNE主加密器（统一接口，支持双视图）
 │
 ├── core/                     # 核心算法
 │   ├── chaotic_encryptor.py  # Layer 1: 混沌加密（Arnold + 5D超混沌）
@@ -13,7 +13,12 @@ src/
 │   └── chaos_systems.py      # 混沌系统实现
 │
 ├── crypto/                   # 密码学组件
-│   └── key_system.py         # 分层密钥系统（KDF + PRF）
+│   └── key_system.py         # 分层密钥系统（KDF + PRF + AEAD）
+│
+├── data/                     # 数据流水线模块 [NEW]
+│   ├── manifest_builder.py   # Manifest构建器（四子集扫描）
+│   ├── semantic_mask_generator.py  # 语义掩码生成器 [TODO]
+│   └── causal_budget_allocator.py  # 因果隐私预算分配器 [TODO]
 │
 ├── vse_pc/                   # 因果推断模块
 │   ├── causal_analysis.py    # ATE/CATE因果效应分析
@@ -68,3 +73,34 @@ src/
 - 相邻像素相关性
 - Chi-square检验
 - NIST随机性测试
+
+### ManifestBuilder (src/data/manifest_builder.py) [NEW]
+
+统一数据清单生成器：
+- 支持四子集扫描：CelebA-HQ、FairFace、OpenImages-PII
+- 生成 manifest.jsonl 格式
+- 包含 sample_id、labels、mask_path 等必需字段
+- 支持公平性分组信息（race/gender/age）
+
+## 双视图加密架构
+
+本项目实现了 **Dual-View Privacy Encryption**：
+
+- **Z-view**: 可用密文，用于密文域ML推理（Layer 1 + Layer 2）
+- **C-view**: 强加密密文，用于存储/传输（Z-view + AEAD封装）
+
+### 确定性加密
+
+支持确定性 nonce 派生，绑定：
+- image_id + task_type + privacy_map_hash + z_view_hash
+
+确保相同输入产生相同输出，同时避免 nonce 复用风险。
+
+### AEAD AAD 绑定
+
+C-view 使用 ChaCha20-Poly1305 AEAD，AAD 格式：
+```
+v2|sample_id|dataset|split|task_type
+```
+
+确保"密文搬家/改字段即解密失败"。

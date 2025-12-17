@@ -41,12 +41,8 @@ ENV/
 *.cache
 .pytest_cache/
 
-# Data (大文件，不提交)
-data/CelebA-HQ/
-data/CelebAMask-HQ/
-data/CelebA-HQ-labels/
-data/*.zip
-data/weight/
+# Data (大文件，不提交，不能二次分发)
+data/
 
 # Results (运行结果，不提交)
 results/

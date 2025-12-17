@@ -467,7 +467,8 @@ class CausalPrivacyAnalyzer:
             return {
                 'cate': np.nan,
                 'std': np.nan,
-                'n': 0
+                'n': 0,
+                'region_type': region_type
             }
         
         # 提取有效样本的性能

@@ -27,7 +27,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 import os
 import json
 import hashlib
@@ -160,14 +160,114 @@ class SCNECipher(nn.Module):
         mac_key = hashlib.sha256(master + b'|mac').digest()         # 32B
         return stream_key, mac_key
 
+    def _derive_deterministic_nonce(
+        self,
+        image_id: str,
+        task_type: str,
+        privacy_map: torch.Tensor,
+        z_view: torch.Tensor
+    ) -> bytes:
+        """
+        派生确定性nonce（绑定输入签名，避免nonce复用风险）
+        
+        nonce = HMAC(k_nonce, "cview|v2|" + image_id + "|" + task_type 
+                     + "|" + sha256(privacy_map) + "|" + sha256(zview))[:16]
+        
+        这确保：相同image + 相同privacy_map + 相同task_type + 相同版本参数
+        才会产生相同的nonce，避免AEAD安全性破坏
+        
+        Args:
+            image_id: 图像唯一标识符
+            task_type: 任务类型 (classification/detection/segmentation)
+            privacy_map: 隐私预算图 [B, 1, H, W]
+            z_view: Z-view密文 [B, C, H, W]
+        
+        Returns:
+            nonce: 16字节确定性nonce
+        """
+        assert self.key_system is not None, "确定性nonce派生需要已初始化的密钥系统"
+        
+        # 计算privacy_map的哈希（取前8字符）
+        privacy_map_hash = hashlib.sha256(
+            privacy_map.detach().cpu().numpy().astype(np.float32).tobytes()
+        ).hexdigest()[:8]
+        
+        # 计算z_view的哈希（取前8字符）
+        z_view_hash = hashlib.sha256(
+            z_view.detach().cpu().numpy().astype(np.float32).tobytes()
+        ).hexdigest()[:8]
+        
+        # 构造上下文字符串
+        context = f"cview|v2|{image_id}|{task_type}|{privacy_map_hash}|{z_view_hash}".encode('utf-8')
+        
+        # 派生nonce密钥
+        k_nonce = hashlib.sha256(self.key_system.master_key + b'|nonce').digest()
+        
+        # 使用HMAC派生确定性nonce
+        nonce = hmac.new(k_nonce, context, hashlib.sha256).digest()[:16]
+        
+        return nonce
+
     @staticmethod
     def _chacha20_xor(data: bytes, key: bytes, nonce: bytes) -> bytes:
         cipher = Cipher(algorithms.ChaCha20(key, nonce), mode=None)
         enc = cipher.encryptor()
         return enc.update(data)
 
-    def _crypto_wrap_encrypt(self, tensor: torch.Tensor) -> Tuple[torch.Tensor, Dict]:
-        """逐样本仿射归一化+16bit量化+ChaCha20流加密；保存仿射参数确保可逆。"""
+    def _build_aad(
+        self,
+        sample_id: Optional[str] = None,
+        dataset: Optional[str] = None,
+        split: Optional[str] = None,
+        task_type: Optional[str] = None,
+        version: int = 2
+    ) -> bytes:
+        """
+        构建 AEAD Associated Data (AAD)
+        
+        AAD 绑定元数据到密文，确保"密文搬家/改字段即解密失败"
+        
+        Args:
+            sample_id: 样本唯一标识符
+            dataset: 数据集名称 (celeba/celebahq/fairface/openimages)
+            split: 数据划分 (train/val/test)
+            task_type: 任务类型 (classification/detection/segmentation)
+            version: 协议版本
+        
+        Returns:
+            aad: AAD 字节串
+        """
+        # 使用 | 分隔的字符串格式，便于调试
+        parts = [
+            f"v{version}",
+            sample_id or "",
+            dataset or "",
+            split or "",
+            task_type or ""
+        ]
+        aad = "|".join(parts).encode('utf-8')
+        return aad
+
+    def _crypto_wrap_encrypt(
+        self, 
+        tensor: torch.Tensor,
+        *,
+        deterministic_nonces: Optional[List[bytes]] = None,
+        aad: Optional[bytes] = None
+    ) -> Tuple[torch.Tensor, Dict]:
+        """
+        逐样本仿射归一化+16bit量化+ChaCha20流加密；保存仿射参数确保可逆。
+        
+        Args:
+            tensor: [B, C, H, W] 输入张量
+            deterministic_nonces: 可选的确定性nonce列表（每个样本一个16字节nonce）
+                                  如果提供，将使用这些nonce而非随机生成
+            aad: Associated Authenticated Data，绑定到MAC计算
+        
+        Returns:
+            wrapped: [B, C, H, W] 加密后的张量
+            info: 加密信息字典
+        """
         assert tensor.dim() == 4
         B, C, H, W = tensor.shape
         device = tensor.device
@@ -190,13 +290,18 @@ class SCNECipher(nn.Module):
             arr_norm = (arr - min_val) / scale  # ∈[0,1]
             q = np.round(arr_norm * qmax).astype(np.uint16)
             raw = q.tobytes()
-            # 随机nonce
-            nonce = os.urandom(16)
+            # 使用确定性nonce或随机nonce
+            if deterministic_nonces is not None and b < len(deterministic_nonces):
+                nonce = deterministic_nonces[b]
+            else:
+                nonce = os.urandom(16)
             nonces.append(nonce.hex())
             # 流加密
             ct = self._chacha20_xor(raw, stream_key, nonce)
-            # MAC 保护
-            tag = hmac.new(mac_key, ct + struct.pack('<IIII', C, H, W, self.wrap_bits), hashlib.sha256).hexdigest()
+            # MAC 保护（包含AAD）
+            # MAC = HMAC(mac_key, AAD || ciphertext || metadata)
+            mac_input = (aad or b'') + ct + struct.pack('<IIII', C, H, W, self.wrap_bits)
+            tag = hmac.new(mac_key, mac_input, hashlib.sha256).hexdigest()
             tags.append(tag)
             # 还原为张量（仍在[0,1]数值域，但已加密）
             q_ct = np.frombuffer(ct, dtype=np.uint16).reshape(C, H, W)
@@ -208,15 +313,33 @@ class SCNECipher(nn.Module):
             'nonces': nonces,
             'tags': tags,
             'wrap_bits': self.wrap_bits,
-            'version': 1,
+            'version': 2,  # 升级版本号
             'affine_min': affine_mins,
             'affine_scale': affine_scales,
-            'mode': 'q16'
+            'mode': 'q16',
+            'aad': (aad or b'').decode('utf-8', errors='replace') if aad else None
         }
         return wrapped, info
 
-    def _crypto_wrap_encrypt_float32(self, tensor: torch.Tensor) -> Tuple[torch.Tensor, Dict]:
-        """对float32位模式做字节级异或，严格无损；值域不限定。"""
+    def _crypto_wrap_encrypt_float32(
+        self, 
+        tensor: torch.Tensor,
+        *,
+        deterministic_nonces: Optional[List[bytes]] = None,
+        aad: Optional[bytes] = None
+    ) -> Tuple[torch.Tensor, Dict]:
+        """
+        对float32位模式做字节级异或，严格无损；值域不限定。
+        
+        Args:
+            tensor: [B, C, H, W] 输入张量（必须是float32）
+            deterministic_nonces: 可选的确定性nonce列表（每个样本一个16字节nonce）
+            aad: Associated Authenticated Data，绑定到MAC计算
+        
+        Returns:
+            wrapped: [B, C, H, W] 加密后的张量
+            info: 加密信息字典
+        """
         assert tensor.dtype == torch.float32, "float32 wrap 仅支持float32"
         B, C, H, W = tensor.shape
         device = tensor.device
@@ -226,10 +349,16 @@ class SCNECipher(nn.Module):
         tags = []
         for b in range(B):
             arr = tensor[b].detach().cpu().numpy().astype(np.float32)
-            nonce = os.urandom(16)
+            # 使用确定性nonce或随机nonce
+            if deterministic_nonces is not None and b < len(deterministic_nonces):
+                nonce = deterministic_nonces[b]
+            else:
+                nonce = os.urandom(16)
             nonces.append(nonce.hex())
             raw_ct = self._chacha20_xor(arr.view(np.uint8).tobytes(), stream_key, nonce)
-            tag = hmac.new(mac_key, raw_ct + struct.pack('<IIII', C, H, W, 32), hashlib.sha256).hexdigest()
+            # MAC 保护（包含AAD）
+            mac_input = (aad or b'') + raw_ct + struct.pack('<IIII', C, H, W, 32)
+            tag = hmac.new(mac_key, mac_input, hashlib.sha256).hexdigest()
             tags.append(tag)
             arr_ct = np.frombuffer(raw_ct, dtype=np.float32).reshape(C, H, W)
             wrapped_list.append(torch.from_numpy(arr_ct))
@@ -238,14 +367,35 @@ class SCNECipher(nn.Module):
             'nonces': nonces,
             'tags': tags,
             'wrap_bits': 32,
-            'version': 1,
+            'version': 2,  # 升级版本号
             'affine_min': [0.0]*B,
             'affine_scale': [1.0]*B,
-            'mode': 'f32'
+            'mode': 'f32',
+            'aad': (aad or b'').decode('utf-8', errors='replace') if aad else None
         }
         return wrapped, info
 
-    def _crypto_wrap_decrypt(self, tensor: torch.Tensor, wrap_info: Dict) -> torch.Tensor:
+    def _crypto_wrap_decrypt(
+        self, 
+        tensor: torch.Tensor, 
+        wrap_info: Dict,
+        *,
+        aad: Optional[bytes] = None
+    ) -> torch.Tensor:
+        """
+        解密 crypto_wrap 加密的张量
+        
+        Args:
+            tensor: [B, C, H, W] 加密的张量
+            wrap_info: 加密信息字典
+            aad: Associated Authenticated Data，必须与加密时相同
+        
+        Returns:
+            plain: [B, C, H, W] 解密后的张量
+        
+        Raises:
+            ValueError: MAC 验证失败（密文被篡改或 AAD 不匹配）
+        """
         B, C, H, W = tensor.shape
         device = tensor.device
         stream_key, mac_key = self._derive_stream_and_mac_keys()
@@ -258,6 +408,11 @@ class SCNECipher(nn.Module):
         affine_mins = wrap_info.get('affine_min', [0.0] * B)
         affine_scales = wrap_info.get('affine_scale', [1.0] * B)
         mode = wrap_info.get('mode', 'q16')
+        version = wrap_info.get('version', 1)
+        
+        # 从wrap_info恢复AAD（如果未提供）
+        if aad is None and wrap_info.get('aad'):
+            aad = wrap_info['aad'].encode('utf-8')
 
         plain_list = []
         for b in range(B):
@@ -266,6 +421,16 @@ class SCNECipher(nn.Module):
                 arr = tensor[b].detach().cpu().numpy().astype(np.float32)
                 nonce = bytes.fromhex(nonces[b])
                 raw_ct_bytes = arr.view(np.uint8).tobytes()
+                
+                # 验证MAC（v2版本包含AAD）
+                if version >= 2:
+                    mac_input = (aad or b'') + raw_ct_bytes + struct.pack('<IIII', C, H, W, 32)
+                else:
+                    mac_input = raw_ct_bytes + struct.pack('<IIII', C, H, W, 32)
+                expected = hmac.new(mac_key, mac_input, hashlib.sha256).hexdigest()
+                if expected != tags[b]:
+                    raise ValueError(f"Crypto wrap MAC verification failed for sample {b}. AAD mismatch or ciphertext tampered.")
+                
                 raw_pt = self._chacha20_xor(raw_ct_bytes, stream_key, nonce)
                 arr_plain = np.frombuffer(raw_pt, dtype=np.float32).reshape(C, H, W)
                 plain_list.append(torch.from_numpy(arr_plain))
@@ -273,10 +438,16 @@ class SCNECipher(nn.Module):
                 arr = tensor[b].detach().cpu().numpy().astype(np.float32)
                 q = np.round(arr * qmax).astype(np.uint16)
                 ct = q.tobytes()
-                # 验证MAC
-                expected = hmac.new(mac_key, ct + struct.pack('<IIII', C, H, W, wrap_info.get('wrap_bits', 16)), hashlib.sha256).hexdigest()
+                
+                # 验证MAC（v2版本包含AAD）
+                if version >= 2:
+                    mac_input = (aad or b'') + ct + struct.pack('<IIII', C, H, W, wrap_info.get('wrap_bits', 16))
+                else:
+                    mac_input = ct + struct.pack('<IIII', C, H, W, wrap_info.get('wrap_bits', 16))
+                expected = hmac.new(mac_key, mac_input, hashlib.sha256).hexdigest()
                 if expected != tags[b]:
-                    raise ValueError("Crypto wrap MAC verification failed")
+                    raise ValueError(f"Crypto wrap MAC verification failed for sample {b}. AAD mismatch or ciphertext tampered.")
+                
                 # 解密
                 nonce = bytes.fromhex(nonces[b])
                 raw = self._chacha20_xor(ct, stream_key, nonce)
@@ -288,6 +459,165 @@ class SCNECipher(nn.Module):
 
         plain = torch.stack(plain_list, dim=0).to(device)
         return plain
+
+    # ======== C-view 双表示结构（bytes + vis） ========
+    
+    def cview_to_bytes(
+        self,
+        c_view_vis: torch.Tensor,
+        wrap_info: Dict
+    ) -> List[bytes]:
+        """
+        将 C-view 可视化张量转换为二进制存储格式
+        
+        Args:
+            c_view_vis: [B, C, H, W] C-view 可视化张量（值域[0,1]）
+            wrap_info: crypto_wrap 信息（包含 wrap_bits, mode 等）
+        
+        Returns:
+            c_view_bytes_list: 每个样本的二进制密文（List[bytes]）
+        """
+        B, C, H, W = c_view_vis.shape
+        mode = wrap_info.get('mode', 'q16')
+        wrap_bits = wrap_info.get('wrap_bits', 16)
+        qmax = (1 << wrap_bits) - 1
+        
+        c_view_bytes_list = []
+        for b in range(B):
+            arr = c_view_vis[b].detach().cpu().numpy().astype(np.float32)
+            
+            if mode == 'f32':
+                # float32 模式：直接转换为字节
+                raw_bytes = arr.tobytes()
+            else:
+                # q16 模式：量化后转换为字节
+                q = np.round(arr * qmax).astype(np.uint16)
+                raw_bytes = q.tobytes()
+            
+            c_view_bytes_list.append(raw_bytes)
+        
+        return c_view_bytes_list
+    
+    def cview_from_bytes(
+        self,
+        c_view_bytes_list: List[bytes],
+        wrap_info: Dict,
+        shape: Tuple[int, int, int, int],
+        device: str = 'cpu'
+    ) -> torch.Tensor:
+        """
+        将 C-view 二进制格式转换回可视化张量
+        
+        Args:
+            c_view_bytes_list: 每个样本的二进制密文（List[bytes]）
+            wrap_info: crypto_wrap 信息
+            shape: 目标形状 (B, C, H, W)
+            device: 目标设备
+        
+        Returns:
+            c_view_vis: [B, C, H, W] C-view 可视化张量
+        """
+        B, C, H, W = shape
+        mode = wrap_info.get('mode', 'q16')
+        wrap_bits = wrap_info.get('wrap_bits', 16)
+        qmax = (1 << wrap_bits) - 1
+        
+        vis_list = []
+        for b, raw_bytes in enumerate(c_view_bytes_list):
+            if mode == 'f32':
+                # float32 模式：直接从字节恢复
+                arr = np.frombuffer(raw_bytes, dtype=np.float32).reshape(C, H, W)
+            else:
+                # q16 模式：从量化字节恢复
+                q = np.frombuffer(raw_bytes, dtype=np.uint16).reshape(C, H, W)
+                arr = q.astype(np.float32) / qmax
+            
+            vis_list.append(torch.from_numpy(arr))
+        
+        c_view_vis = torch.stack(vis_list, dim=0).to(device)
+        return c_view_vis
+    
+    def pack_cview_binary(
+        self,
+        c_view_vis: torch.Tensor,
+        enc_info: Dict
+    ) -> Dict:
+        """
+        打包 C-view 为完整的二进制存储包
+        
+        包含：密文字节、nonce、tag、版本、元信息
+        
+        Args:
+            c_view_vis: [B, C, H, W] C-view 可视化张量
+            enc_info: 完整的加密信息
+        
+        Returns:
+            binary_pack: 包含所有存储所需信息的字典
+        """
+        wrap_info = enc_info.get('crypto_wrap', {})
+        if not wrap_info:
+            raise ValueError("enc_info 中缺少 crypto_wrap 信息")
+        
+        B, C, H, W = c_view_vis.shape
+        c_view_bytes_list = self.cview_to_bytes(c_view_vis, wrap_info)
+        
+        binary_pack = {
+            'version': 2,
+            'format': 'cview_binary',
+            'shape': [B, C, H, W],
+            'mode': wrap_info.get('mode', 'q16'),
+            'wrap_bits': wrap_info.get('wrap_bits', 16),
+            'ciphertext': [ct.hex() for ct in c_view_bytes_list],  # hex编码便于JSON序列化
+            'nonces': wrap_info.get('nonces', []),
+            'tags': wrap_info.get('tags', []),
+            'affine_min': wrap_info.get('affine_min', []),
+            'affine_scale': wrap_info.get('affine_scale', []),
+            # 审计信息
+            'image_id': enc_info.get('image_id'),
+            'task_type': enc_info.get('task_type'),
+            'privacy_level': enc_info.get('privacy_level'),
+            'privacy_map_hash': enc_info.get('privacy_map_hash'),
+            'z_view_hash': enc_info.get('z_view_hash'),
+        }
+        
+        return binary_pack
+    
+    def unpack_cview_binary(
+        self,
+        binary_pack: Dict,
+        device: str = 'cpu'
+    ) -> Tuple[torch.Tensor, Dict]:
+        """
+        从二进制存储包解包 C-view
+        
+        Args:
+            binary_pack: pack_cview_binary 生成的存储包
+            device: 目标设备
+        
+        Returns:
+            c_view_vis: [B, C, H, W] C-view 可视化张量
+            wrap_info: 用于解密的 crypto_wrap 信息
+        """
+        shape = tuple(binary_pack['shape'])
+        mode = binary_pack.get('mode', 'q16')
+        wrap_bits = binary_pack.get('wrap_bits', 16)
+        
+        # 从hex解码密文
+        c_view_bytes_list = [bytes.fromhex(ct) for ct in binary_pack['ciphertext']]
+        
+        wrap_info = {
+            'mode': mode,
+            'wrap_bits': wrap_bits,
+            'nonces': binary_pack.get('nonces', []),
+            'tags': binary_pack.get('tags', []),
+            'affine_min': binary_pack.get('affine_min', []),
+            'affine_scale': binary_pack.get('affine_scale', []),
+            'version': binary_pack.get('version', 1),
+        }
+        
+        c_view_vis = self.cview_from_bytes(c_view_bytes_list, wrap_info, shape, device)
+        
+        return c_view_vis, wrap_info
     
     def set_password(self, password: str, iterations: int = 100000, salt: bytes = None):
         """设置用户密码，初始化密钥系统；可选指定盐以复现主密钥"""
@@ -302,7 +632,11 @@ class SCNECipher(nn.Module):
         privacy_level: float = 1.0,
         semantic_preserving: bool = False,
         *,
-        seeds_override: Optional[list] = None
+        seeds_override: Optional[list] = None,
+        image_id: Optional[str] = None,
+        task_type: str = 'classification',
+        dataset: Optional[str] = None,
+        split: Optional[str] = None
     ) -> Tuple[torch.Tensor, Dict]:
         """
         SCNE完整加密流程
@@ -314,6 +648,11 @@ class SCNECipher(nn.Module):
             password: 用户密码
             privacy_level: 隐私级别 [0.0-1.0]
             semantic_preserving: 是否启用语义保持
+            seeds_override: 可选的种子覆盖列表
+            image_id: 图像唯一标识符（用于确定性nonce派生和AAD）
+            task_type: 任务类型 (classification/detection/segmentation)
+            dataset: 数据集名称（用于AAD绑定）
+            split: 数据划分（用于AAD绑定）
         
         Returns:
             encrypted: [B, C, H, W] 加密图像
@@ -436,11 +775,57 @@ class SCNECipher(nn.Module):
 
         # ===== 额外封装：字节级流加密（提高熵/完整性，可逆） =====
         crypto_info = None
+        deterministic_nonces = None
+        privacy_map_hash = None
+        z_view_hash = None
+        aad = None
+        
         if self.crypto_wrap_enabled and self.key_system is not None:
+            # 在确定性模式下，派生确定性nonce（绑定image_id + task_type + privacy_map + z_view）
+            if self.deterministic and image_id is not None:
+                B = encrypted_final.shape[0]
+                deterministic_nonces = []
+                
+                # 计算privacy_map和z_view的哈希（用于审计和nonce派生）
+                privacy_map_hash = hashlib.sha256(
+                    mask.detach().cpu().numpy().astype(np.float32).tobytes()
+                ).hexdigest()[:8]
+                z_view_hash = hashlib.sha256(
+                    encrypted_final.detach().cpu().numpy().astype(np.float32).tobytes()
+                ).hexdigest()[:8]
+                
+                for b in range(B):
+                    # 为每个样本派生确定性nonce
+                    sample_image_id = f"{image_id}_{b}" if B > 1 else image_id
+                    nonce = self._derive_deterministic_nonce(
+                        image_id=sample_image_id,
+                        task_type=task_type,
+                        privacy_map=mask[b:b+1],
+                        z_view=encrypted_final[b:b+1]
+                    )
+                    deterministic_nonces.append(nonce)
+            
+            # 构建 AAD（绑定元数据到密文）
+            aad = self._build_aad(
+                sample_id=image_id,
+                dataset=dataset,
+                split=split,
+                task_type=task_type,
+                version=2
+            )
+            
             if self.wrap_mode == 'f32' or (self.lossless_mode and self.wrap_mode != 'q16'):
-                encrypted_final, crypto_info = self._crypto_wrap_encrypt_float32(encrypted_final)
+                encrypted_final, crypto_info = self._crypto_wrap_encrypt_float32(
+                    encrypted_final, 
+                    deterministic_nonces=deterministic_nonces,
+                    aad=aad
+                )
             else:
-                encrypted_final, crypto_info = self._crypto_wrap_encrypt(encrypted_final)
+                encrypted_final, crypto_info = self._crypto_wrap_encrypt(
+                    encrypted_final,
+                    deterministic_nonces=deterministic_nonces,
+                    aad=aad
+                )
         
         # ===== 返回加密结果和信息（带签名） =====
         enc_info = {
@@ -453,7 +838,14 @@ class SCNECipher(nn.Module):
             'crypto_wrap': (crypto_info['wrap'] if isinstance(crypto_info, dict) and 'wrap' in crypto_info else crypto_info),
             'crypto_enabled': bool(self.crypto_wrap_enabled),
             'lossless_mode': bool(self.lossless_mode),
-            'wrap_mode': self.wrap_mode
+            'wrap_mode': self.wrap_mode,
+            # 确定性nonce相关信息（用于审计和复现）
+            'image_id': image_id,
+            'task_type': task_type,
+            'dataset': dataset,
+            'split': split,
+            'privacy_map_hash': privacy_map_hash,
+            'z_view_hash': z_view_hash
         }
         # 记录KDF盐（用于解密端复现主密钥）
         try:
@@ -743,7 +1135,10 @@ class SCNECipherAPI:
         image: torch.Tensor,
         privacy_level: float = 1.0,
         semantic_preserving: bool = False,
-        mask: Optional[torch.Tensor] = None
+        mask: Optional[torch.Tensor] = None,
+        *,
+        image_id: Optional[str] = None,
+        task_type: str = 'classification'
     ) -> Tuple[torch.Tensor, Dict]:
         """
         简化的加密接口（自动生成mask和params）
@@ -754,6 +1149,8 @@ class SCNECipherAPI:
             semantic_preserving: 语义保持模式
             mask: [B, 1, H, W] 可选的语义掩码，用于区域差异化加密
                   如果不提供，将使用U-Net生成或默认全1
+            image_id: 图像唯一标识符（用于确定性nonce派生，仅在deterministic=True时生效）
+            task_type: 任务类型 (classification/detection/segmentation)
         
         Returns:
             encrypted: 加密图像
@@ -811,7 +1208,9 @@ class SCNECipherAPI:
             chaos_params,
             password=self.password,
             privacy_level=privacy_level,
-            semantic_preserving=semantic_preserving
+            semantic_preserving=semantic_preserving,
+            image_id=image_id,
+            task_type=task_type
         )
         
         return encrypted, enc_info

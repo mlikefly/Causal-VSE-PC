@@ -1,0 +1,115 @@
+# 基准测试配置模板
+# Requirements: 9.4
+
+# 实验元数据
+experiment:
+  name: "vse-pc-benchmark"
+  version: "1.0.0"
+  description: "VSE-PC 双视图加密系统基准测试"
+
+# 数据配置
+data:
+  datasets:
+    - name: "CelebA"
+      path: "data/CelebA-HQ"
+      split: "test"
+      num_samples: 1000
+    - name: "FairFace"
+      path: "data/fairface-img-margin025-trainval"
+      split: "val"
+      num_samples: 500
+    - name: "OpenImages"
+      path: "data/OpenImages"
+      split: "test"
+      num_samples: 500
+  
+  image_size: 256
+  normalize: true
+  augmentation: false
+
+# 加密配置
+encryption:
+  password: "benchmark_password"
+  deterministic: true
+  wrap_mode: "q16"
+  use_frequency: true
+  use_fft: true
+  num_radial_bins: 8
+  
+  privacy_levels:
+    - 0.0
+    - 0.3
+    - 0.5
+    - 0.7
+    - 1.0
+
+# 评估配置
+evaluation:
+  # 效用评估
+  utility:
+    tasks:
+      - classification
+      - detection
+      - segmentation
+    metrics:
+      classification:
+        - accuracy
+        - f1_score
+      detection:
+        - map50
+        - map75
+      segmentation:
+        - miou
+        - pixel_accuracy
+  
+  # 攻击评估
+  attack:
+    identity:
+      enabled: true
+      top_k: [1, 5]
+    reconstruction:
+      enabled: true
+      metrics: [psnr, ssim, lpips]
+    attribute:
+      enabled: true
+      attributes: [gender, race, age]
+    linkability:
+      enabled: true
+  
+  # 安全性评估
+  security:
+    z_view:
+      metrics: [entropy, npcr, uaci, correlation]
+    c_view:
+      metrics: [entropy, npcr, uaci, correlation, chi2, nist_monobit, nist_runs]
+
+# Baseline 对标
+baselines:
+  enabled: true
+  methods:
+    - instahide
+    - p3
+    - arnold
+    - logistic
+
+# 可复现性配置
+reproducibility:
+  seed: 42
+  deterministic_cudnn: true
+  benchmark_cudnn: false
+
+# 输出配置
+output:
+  dir: "results/benchmark"
+  save_json: true
+  save_latex: true
+  save_figures: true
+  figure_format: "pdf"
+  figure_dpi: 300
+
+# 计算配置
+compute:
+  device: "cuda"
+  num_workers: 4
+  batch_size: 32
+  mixed_precision: false
