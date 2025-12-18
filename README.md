@@ -1,218 +1,218 @@
 # Causal-VSE-PC
 
-**Causal Visual Semantic Encryption with Privacy Control**
+**因果视觉语义加密与隐私控制系统**
 
-[![Protocol Version](https://img.shields.io/badge/Protocol-v2.1.1-blue.svg)](docs/project_overview.md)
+[![协议版本](https://img.shields.io/badge/协议-v2.1.1-blue.svg)](docs/project_overview.md)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![许可证](https://img.shields.io/badge/许可证-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 🎯 Overview
+## 🎯 项目概述
 
-Causal-VSE-PC is a privacy-preserving image encryption system designed for top-tier journal publication (T-IFS/TIP/TNNLS). The system implements a **dual-view architecture** with **causal privacy budget allocation**.
+Causal-VSE-PC 是一个面向顶刊发表（T-IFS/TIP/TNNLS）的隐私保护图像加密系统。系统实现了**双视图架构**与**因果隐私预算分配**。
 
-### Core Contributions
+### 核心贡献
 
-| # | Contribution | Evidence |
-|---|--------------|----------|
-| C1 | **Causal Privacy Budget Allocation** - ATE/CATE-guided semantic region budget optimization | Pareto curves + causal effects |
-| C2 | **Dual-View Architecture** - Z-view (utility) + C-view (crypto) separation with A0/A1/A2 threat levels | Attack curves + worst-case aggregation |
-| C3 | **Comprehensive Attack Evaluation** - 5 attack types + A2 adaptive attacks | Attack metrics + statistical significance |
-| C4 | **Auditable AEAD Security** - Confidentiality/Integrity/Replay resistance | Security validation + diagnostics |
-| C5 | **Reproducible Protocol** - Frozen protocol, coverage verification, byte-level figure reproduction | Artifact checklist + CI results |
+| # | 贡献 | 证据 |
+|---|------|------|
+| C1 | **因果隐私预算分配** - 基于ATE/CATE的语义区域预算优化 | Pareto曲线 + 因果效应 |
+| C2 | **双视图架构** - Z-view（效用）+ C-view（密码学）分离，支持A0/A1/A2威胁等级 | 攻击曲线 + worst-case聚合 |
+| C3 | **全面攻击评估** - 5类攻击 + A2自适应攻击 | 攻击指标 + 统计显著性 |
+| C4 | **可审计的AEAD安全** - 机密性/完整性/抗重放 | 安全验证 + 诊断证据 |
+| C5 | **可复现协议** - 协议冻结、覆盖度验证、字节级图表复现 | Artifact清单 + CI结果 |
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Causal-VSE-PC Architecture                    │
+│                    Causal-VSE-PC 系统架构                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  Input Image → Semantic Mask → Causal Budget → Dual-View Encrypt │
+│  输入图像 → 语义掩码 → 因果预算 → 双视图加密                      │
 │                                                                  │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐          │
-│  │   Z-view    │    │   C-view    │    │  Evaluation │          │
-│  │ (Utility)   │    │  (Crypto)   │    │  (5 Attacks)│          │
+│  │   Z-view    │    │   C-view    │    │   评估层    │          │
+│  │  (效用视图) │    │ (密码学视图)│    │  (5类攻击)  │          │
 │  └─────────────┘    └─────────────┘    └─────────────┘          │
 │                                                                  │
-│  Training Modes: P2P / P2Z / Z2Z / Mix2Z                        │
-│  Threat Levels: A0 (Black-box) / A1 (Gray-box) / A2 (Adaptive)  │
+│  训练模式: P2P / P2Z / Z2Z / Mix2Z                              │
+│  威胁等级: A0 (黑盒) / A1 (灰盒) / A2 (自适应)                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🚀 快速开始
 
-### Installation
+### 安装
 
 ```bash
-# Clone repository
+# 克隆仓库
 git clone https://github.com/mlikefly/Causal-VSE-PC.git
 cd Causal-VSE-PC
 
-# Install dependencies
+# 安装依赖
 pip install -r requirements.txt
 ```
 
-### Basic Usage
+### 基本使用
 
 ```python
 from src.cipher.dual_view_engine import DualViewEngine
 
-# Initialize encryption engine
+# 初始化加密引擎
 engine = DualViewEngine(master_key=your_key)
 
-# Encrypt image with dual views
+# 双视图加密
 z_view, c_view, enc_info = engine.encrypt(
     image,
     privacy_level=0.5
 )
 
-# Z-view: Use for ML inference (preserves semantics)
-# C-view: Use for secure storage (AEAD wrapped)
+# Z-view: 用于ML推理（保留语义）
+# C-view: 用于安全存储（AEAD封装）
 ```
 
-### Run Tests
+### 运行测试
 
 ```bash
-# Run all tests
+# 运行所有测试
 pytest tests/ -v
 
-# Run smoke test (< 20 min)
+# 运行smoke测试（< 20分钟）
 python scripts/run_benchmark.py --smoke_test
 
-# Run full experiments
+# 运行完整实验
 python scripts/run_benchmark.py --full
 ```
 
 ---
 
-## 📊 Metrics
+## 📊 指标
 
-### Security Metrics
+### 安全指标
 
-| Metric | Target | Current |
-|--------|--------|---------|
+| 指标 | 目标 | 当前值 |
+|------|------|--------|
 | NPCR | > 99.6% | ✅ 99.57% |
 | UACI | 30-36% | ✅ 33.49% |
-| Entropy | > 7.9 bits | ✅ 7.99 |
-| Tamper fail_rate | ≥ 99% | ✅ Implemented |
-| Replay reject_rate | = 100% | ✅ Implemented |
+| 信息熵 | > 7.9 bits | ✅ 7.99 |
+| Tamper失败率 | ≥ 99% | ✅ 已实现 |
+| Replay拒绝率 | = 100% | ✅ 已实现 |
 
-### Utility Thresholds
+### 效用门槛
 
-| Privacy Level | Threshold |
-|---------------|-----------|
+| 隐私级别 | 门槛 |
+|----------|------|
 | λ = 0.3 | ≥ 75% P2P |
 | λ = 0.5 | ≥ 65% P2P |
 | λ = 0.7 | ≥ 55% P2P |
 
 ---
 
-## 🔒 Security Boundary
+## 🔒 安全边界声明
 
 ```
-Security Boundary Declaration:
-1. C-view security inherits from standard AEAD (AES-GCM/ChaCha20-Poly1305), 
-   providing IND-CPA and IND-CCA guarantees.
-2. Chaotic/frequency domain transformations serve as confusion/diffusion 
-   layers and do NOT independently claim semantic security.
-3. Z-view privacy is empirically demonstrated through attack success rate 
-   reduction, not through cryptographic proofs.
-4. This system does not defend against: side-channel attacks, physical 
-   attacks, or attacks with access to the encryption key.
+安全边界声明:
+1. C-view安全性继承自标准AEAD（AES-GCM/ChaCha20-Poly1305），
+   提供IND-CPA和IND-CCA保证。
+2. 混沌/频域变换作为混淆/扩散层，
+   不单独宣称语义安全。
+3. Z-view隐私通过攻击成功率降低来实证证明，
+   而非密码学证明。
+4. 本系统不防御：侧信道攻击、物理攻击、
+   或拥有加密密钥的攻击。
 ```
 
 ---
 
-## 📁 Project Structure
+## 📁 项目结构
 
 ```
 Causal-VSE-PC/
 ├── src/
-│   ├── cipher/           # Encryption engines
-│   ├── core/             # Core algorithms (chaos, frequency)
-│   ├── crypto/           # Cryptographic components
-│   ├── data/             # Data pipeline
-│   ├── protocol/         # Protocol & validation
-│   ├── training/         # Training modes
-│   └── evaluation/       # Evaluation framework
-├── tests/                # Unit tests
-├── scripts/              # Utility scripts
-├── configs/              # Configuration files
-├── docs/                 # Documentation
-└── .kiro/specs/          # Design specifications
+│   ├── cipher/           # 加密引擎
+│   ├── core/             # 核心算法（混沌、频域）
+│   ├── crypto/           # 密码学组件
+│   ├── data/             # 数据流水线
+│   ├── protocol/         # 协议与验证
+│   ├── training/         # 训练模式
+│   └── evaluation/       # 评估框架
+├── tests/                # 单元测试
+├── scripts/              # 工具脚本
+├── configs/              # 配置文件
+├── docs/                 # 文档
+└── .kiro/specs/          # 设计规范
 ```
 
 ---
 
-## 📚 Documentation
+## 📚 文档
 
-- [Project Overview](docs/project_overview.md)
-- [Workflow](docs/workflow.md)
-- [Goals & Metrics](docs/goals_and_metrics.md)
-- [Development Log](docs/development_log.md)
-- [Source Code Guide](src/README.md)
-- [Design Document](.kiro/specs/top-journal-experiment-suite/design.md)
-
----
-
-## 🧪 Attack Evaluation
-
-### 5 Attack Types
-
-| Attack | Metric | Direction |
-|--------|--------|-----------|
-| Face Verification | TAR@FAR=1e-3 | ↓ lower is better |
-| Attribute Inference | AUC | ↓ lower is better |
-| Reconstruction | identity_similarity | ↓ lower is better |
-| Membership Inference | AUC | ↓ lower is better |
-| Property Inference | AUC | ↓ lower is better |
-
-### Threat Levels
-
-| Level | Knowledge | Capability |
-|-------|-----------|------------|
-| A0 | Z-view output only | Output-based inference |
-| A1 | Algorithm + architecture | Targeted attack models |
-| A2 | Mask + budget allocation | Adaptive attack strategies |
+- [项目总览](docs/project_overview.md)
+- [工作流程](docs/workflow.md)
+- [目标与指标](docs/goals_and_metrics.md)
+- [开发日志](docs/development_log.md)
+- [源代码指南](src/README.md)
+- [设计文档](.kiro/specs/top-journal-experiment-suite/design.md)
 
 ---
 
-## 📈 Outputs
+## 🧪 攻击评估
 
-### 8 Main Figures
+### 5类攻击
 
-1. `fig_utility_curve.png` - Utility vs privacy_level
-2. `fig_attack_curves.png` - 5 attack curves + CI
-3. `fig_pareto_frontier.png` - Privacy-utility Pareto frontier
+| 攻击类型 | 指标 | 方向 |
+|----------|------|------|
+| 人脸验证 | TAR@FAR=1e-3 | ↓ 越低越好 |
+| 属性推断 | AUC | ↓ 越低越好 |
+| 重建攻击 | identity_similarity | ↓ 越低越好 |
+| 成员推断 | AUC | ↓ 越低越好 |
+| 属性推断 | AUC | ↓ 越低越好 |
+
+### 威胁等级
+
+| 等级 | 知识范围 | 攻击能力 |
+|------|----------|----------|
+| A0 | 仅Z-view输出 | 基于输出的推断 |
+| A1 | 算法 + 架构 | 针对性攻击模型 |
+| A2 | Mask + 预算分配 | 自适应攻击策略 |
+
+---
+
+## 📈 输出
+
+### 8张主图
+
+1. `fig_utility_curve.png` - 效用随privacy_level变化
+2. `fig_attack_curves.png` - 5类攻击曲线+CI
+3. `fig_pareto_frontier.png` - 隐私-效用Pareto前沿
 4. `fig_causal_ate_cate.png` - ATE/CATE + CI
-5. `fig_cview_security_summary.png` - C-view security summary
-6. `fig_ablation_summary.png` - Ablation comparison
-7. `fig_efficiency.png` - Efficiency comparison
-8. `fig_robustness.png` - Robustness results
+5. `fig_cview_security_summary.png` - C-view安全汇总
+6. `fig_ablation_summary.png` - 消融实验对比
+7. `fig_efficiency.png` - 效率对比
+8. `fig_robustness.png` - 鲁棒性结果
 
 ---
 
-## 📄 License
+## 📄 许可证
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
 
 ---
 
-## 👤 Author
+## 👤 作者
 
 - **mlikefly** - [GitHub](https://github.com/mlikefly)
-- Email: 1392792307@qq.com
+- 邮箱: 1392792307@qq.com
 
 ---
 
-## 🙏 Acknowledgments
+## 🙏 致谢
 
-- CelebA-HQ Dataset
-- FairFace Dataset
-- OpenImages Dataset
+- CelebA-HQ 数据集
+- FairFace 数据集
+- OpenImages 数据集
