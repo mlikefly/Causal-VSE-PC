@@ -585,7 +585,8 @@ Layer 2 (频域) → I_encrypted
 ---
 
 **相关文档**:
-- [返回总览](Causal-VSE-PC_项目总览.md)
-- [数据集分析](Causal-VSE-PC_数据集分析与使用.md)
-- [工作流程](Causal-VSE-PC_工作流程.md)
-- [理论证明](Causal-VSE-PC_理论证明.md)
+- [项目总览](project_overview.md)
+- [数据集分析](dataset_analysis.md)
+- [工作流程](workflow.md)
+- [理论证明](theoretical_proof.md)
+- [目标与指标](goals_and_metrics.md)

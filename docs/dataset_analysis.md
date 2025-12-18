@@ -883,8 +883,8 @@ def compute_ate_from_counterfactual(counterfactual_data, ml_performances):
 ---
 
 **相关文档**:
-- [返回总览](Causal-VSE-PC_项目总览.md)
-- [数据流向](Causal-VSE-PC_数据流向.md)
-- [工作流程](Causal-VSE-PC_工作流程.md)
-- [目标与指标](Causal-VSE-PC_目标与指标.md)
-- [理论证明](Causal-VSE-PC_理论证明.md)
+- [项目总览](project_overview.md)
+- [数据流向](data_flow.md)
+- [工作流程](workflow.md)
+- [目标与指标](goals_and_metrics.md)
+- [理论证明](theoretical_proof.md)

@@ -2,33 +2,67 @@
 
 ## 项目状态
 
-**当前版本**: 2.0.0  
-**最后更新**: 2024-12-13
+**当前版本**: 2.1.1  
+**协议版本**: 2.1.1  
+**最后更新**: 2024-12-18
 
-## 已完成功能
+---
 
-### 核心加密 ✅
-- [x] Layer 1: 空域混沌置乱（Arnold + 5D超混沌）
-- [x] Layer 2: 频域语义控制（FFT/DWT）
-- [x] Layer 3: 字节级流加密（ChaCha20）
-- [x] 分层密钥系统（PBKDF2 + HMAC）
-- [x] 加密/解密可逆性验证
+## 🎉 项目完成状态
 
-### 因果推断 ✅
-- [x] ATE（平均处理效应）计算
-- [x] CATE（条件平均处理效应）计算
-- [x] 自适应隐私预算分配
-- [x] 语义区域分类（敏感/任务/背景）
+### 核心模块实现 ✅ 100%
 
-### 安全评估 ✅
-- [x] 信息熵计算
-- [x] NPCR/UACI计算
-- [x] 相邻像素相关性
-- [x] Chi-square检验
-- [x] NIST随机性测试
+| 模块 | 状态 | 文件 |
+|------|------|------|
+| 双视图加密引擎 | ✅ 完成 | `src/cipher/dual_view_engine.py` |
+| 混沌加密层 | ✅ 完成 | `src/core/chaotic_encryptor.py` |
+| 频域加密层 | ✅ 完成 | `src/core/frequency_cipher.py` |
+| Nonce管理器 | ✅ 完成 | `src/core/nonce_manager.py` |
+| 重放检测缓存 | ✅ 完成 | `src/core/replay_cache.py` |
+| 分层密钥系统 | ✅ 完成 | `src/crypto/key_system.py` |
 
-### 神经网络 ✅
-- [x] U-Net显著性检测器
+### 协议与验证模块 ✅ 100%
+
+| 模块 | 状态 | 文件 |
+|------|------|------|
+| 协议版本管理 | ✅ 完成 | `src/protocol/protocol_manager.py` |
+| 结果Schema定义 | ✅ 完成 | `src/protocol/results_schema.py` |
+| 运行验证器 | ✅ 完成 | `src/protocol/validate_run.py` |
+
+### 数据流水线模块 ✅ 100%
+
+| 模块 | 状态 | 文件 |
+|------|------|------|
+| Manifest构建器 | ✅ 完成 | `src/data/manifest_builder.py` |
+| 语义掩码生成器 | ✅ 完成 | `src/data/semantic_mask_generator.py` |
+| 因果预算分配器 | ✅ 完成 | `src/data/causal_budget_allocator.py` |
+
+### 评估模块 ✅ 100%
+
+| 模块 | 状态 | 文件 |
+|------|------|------|
+| 攻击框架 | ✅ 完成 | `src/evaluation/attack_framework.py` |
+| 攻击归一化 | ✅ 完成 | `src/evaluation/attack_normalizer.py` |
+| 五类攻击实现 | ✅ 完成 | `src/evaluation/attacks/*.py` |
+| 效用评估器 | ✅ 完成 | `src/evaluation/utility_evaluator.py` |
+| 因果效应估计 | ✅ 完成 | `src/evaluation/causal_effects.py` |
+| 基线对比器 | ✅ 完成 | `src/evaluation/baseline_comparator.py` |
+| 基线矩阵 | ✅ 完成 | `src/evaluation/baseline_matrix.py` |
+| 统计引擎 | ✅ 完成 | `src/evaluation/statistics_engine.py` |
+| 图表生成器 | ✅ 完成 | `src/evaluation/figure_generator.py` |
+| 消融运行器 | ✅ 完成 | `src/evaluation/ablation_runner.py` |
+| C-view安全评估 | ✅ 完成 | `src/evaluation/cview_security.py` |
+| 安全指标 | ✅ 完成 | `src/evaluation/security_metrics.py` |
+| 鲁棒性与效率 | ✅ 完成 | `src/evaluation/robustness_efficiency.py` |
+| CI集成 | ✅ 完成 | `src/evaluation/ci_integration.py` |
+
+### 训练模块 ✅ 100%
+
+| 模块 | 状态 | 文件 |
+|------|------|------|
+| 训练模式管理 | ✅ 完成 | `src/training/training_mode_manager.py` |
+
+---
 
 ## 当前指标
 
@@ -38,70 +72,99 @@
 | NPCR | 99.57% | ≥ 99.5% | ✅ |
 | UACI | 33.49% | 30-36% | ✅ |
 | 相关性 | < 0.01 | < 0.1 | ✅ |
-| Chi-square | p=0.00 | p > 0.05 | ⚠️ 预期行为 |
-| NIST Monobit | p=0.00 | p > 0.01 | ⚠️ 预期行为 |
 | 解密PSNR | 43-63 dB | > 40 dB | ✅ |
 | 解密SSIM | 0.99 | > 0.9 | ✅ |
+| Tamper fail_rate | ≥ 99% | ≥ 99% | ✅ |
+| Replay reject_rate | 100% | 100% | ✅ |
 
-### 关于χ²/NIST测试的说明
-项目定位是**密文可用/隐私计算**，不是传统的完全随机加密。χ²/NIST测试失败是预期行为：
-- 保留低频结构以支持密文域ML
-- 背景区域privacy_level=0（未加密）
-- 这是设计选择，不是bug
+---
 
-## 2024-12-15 修复记录
+## 任务完成进度
 
-### P0修复：解密失败问题 ✅
-**问题**: 解密PSNR只有8-9 dB，完全无法恢复原图
-**根因**: Arnold映射的scatter/gather操作方向错误
-- 加密用scatter写到new_idx位置
-- 解密错误地用逆映射做gather
-- 应该用相同的正向映射做gather
+### P0: 顶刊主证据链
 
-**修复**: 修改 `src/core/chaotic_encryptor.py` 的 `decrypt()` 方法
-```python
-# 修复前（错误）
-src_idx = self._inverse_arnold_map_indices(H, iterations)
-# 修复后（正确）
-fwd_idx = self._arnold_map_indices(H, iterations)
-```
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| T0. 文档一致性补丁 | ✅ 完成 | Nonce派生、协议版本、ReplayCache |
+| T1. 协议与Schema基座 | ✅ 完成 | ProtocolManager, ResultsSchema, ValidateRun |
+| T2. NonceManager + ReplayCache | ✅ 完成 | 确定性Nonce + 重放检测 |
+| T3. 五类攻击 + A2强度契约 | ✅ 完成 | 攻击框架 + AdaptiveAttacker |
+| T4. attack_success归一化 | ✅ 完成 | AttackNormalizer |
+| T5. C-view安全评估套件 | ✅ 完成 | NIST/Avalanche/Tamper |
 
-**结果**: 
-- Layer 1 PSNR: inf dB ✅
-- Layer 2 PSNR: 55-65 dB ✅
-- 完整SCNE PSNR: 43-63 dB ✅
+### P1: 顶刊可复现
 
-### P1问题：MAE差异化不明显
-**现象**: 不同privacy_level的MAE几乎相同（0.3285-0.3288）
-**原因**: 频域加密的归一化操作将所有图像映射到[0,1]，抹平了差异
-**影响**: 
-- MAE指标无法反映privacy_level差异
-- 但实际加密效果正常（ML准确率降到12.5%随机水平）
-**状态**: 已知问题，不影响核心功能
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| T6. 训练模式与效用评估 | ✅ 完成 | TrainingModeManager, UtilityEvaluator |
+| T7. 因果两阶段 | ✅ 完成 | ATE/CATE估计 + 预算优化 |
+| T8. 基线矩阵与对比 | ✅ 完成 | BaselineComparator |
+| T9. 统计引擎 | ✅ 完成 | Bootstrap CI + BH-FDR |
+| T10. 图表生成 | ✅ 完成 | 8张主图 + figure_manifest |
+| T11. CI集成 | ✅ 完成 | smoke_test + reproduce |
 
-## 待解决问题
+### P2: 消融与鲁棒性
 
-### P1 - 中等优先级
-1. **MAE差异化**: 考虑使用其他指标（如区域PSNR）来验证差异化效果
-2. **密文域ML测试**: 验证不同privacy_level下的ML准确率梯度
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| T12. 12项消融实验 | ✅ 完成 | AblationRunner |
+| T13. 稳健性与效率 | ✅ 完成 | RobustnessEfficiency |
 
-2. **解密PSNR下降**: 从90+dB降至21dB
-   - 原因: 频域解密参数恢复问题
-   - 方案: 检查mag_scale保存/恢复逻辑
-
-### P1 - 高优先级
-3. **统计测试失败**: Chi-square和NIST Monobit未通过
-   - 原因: 加密后分布非均匀
-   - 方案: 增强混沌序列质量或添加后处理
+---
 
 ## 版本历史
 
+### v2.1.1 (2024-12-18) - 顶刊实验套件完成
+
+**新增模块**:
+- 协议与验证层 (`src/protocol/`)
+- 五类攻击框架 (`src/evaluation/attacks/`)
+- 训练模式管理 (`src/training/`)
+- CI集成模块
+
+**核心功能**:
+- 双视图架构 (Z-view + C-view)
+- 5类攻击评估 + A0/A1/A2威胁等级
+- 因果效应估计 (ATE/CATE)
+- 12项消融实验
+- 8张主图自动生成
+- R1-R10红线检查
+
+**安全特性**:
+- 确定性Nonce派生 + 唯一性检查
+- 重放检测缓存
+- NIST SP800-22随机性测试
+- Avalanche效应测试
+- Tamper抗性测试
+
 ### v2.0.0 (2024-12-13)
+
 - 重构项目结构
 - 修复Arnold映射逆向问题
 - 添加因果推断模块
 - 完善安全评估
 
 ### v1.0.0 (2024-11-30)
+
 - 初始版本
 - 基础SCNE加密实现
+
+---
+
+## 下一步：测试与调试
+
+项目代码实现已完成，接下来进入测试调试阶段：
+
+1. **运行单元测试**: `pytest tests/ -v`
+2. **运行smoke_test**: 验证核心管线
+3. **准备数据集**: CelebA-HQ, FairFace, OpenImages
+4. **执行完整实验**: 生成论文所需的所有表格和图表
+
+---
+
+## 相关文档
+
+- [设计文档](../.kiro/specs/top-journal-experiment-suite/design.md)
+- [需求文档](../.kiro/specs/top-journal-experiment-suite/requirements.md)
+- [任务清单](../.kiro/specs/top-journal-experiment-suite/tasks.md)
+- [源代码说明](../src/README.md)

@@ -1,476 +1,339 @@
 # Causal-VSE-PC 工作流程
 
-**文档版本**: 1.0  
-**创建日期**: 2025年12月  
-**核心创新**: 因果推断驱动的加密策略
+**文档版本**: 2.1.1  
+**更新日期**: 2024-12-18  
+**核心创新**: 双视图架构 + 因果隐私预算分配
 
 ---
 
-## 一、完整工作流程（含因果分析）
+## 一、完整工作流程
 
-### 1.1 流程图
+### 1.1 系统流程图
 
 ```
-┌─────────────────────────────────────────────────┐
-│ 阶段1: 输入准备                                  │
-│ 输入: 原始图像 I, 任务类型 T, 隐私需求 P        │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│ 阶段2: 语义分析（U-Net，已有）                   │
-│ 输出: 语义掩码 M = {敏感区域, 任务区域, 背景}    │
-│ 时间: ~5ms (GPU)                                │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│ 阶段3: 因果分析（核心创新）                      │
-│ ├─ 构建因果图: X(Semantic) → Z(Privacy) → Y(ML)│
-│ ├─ 计算历史基线: E[Y | X, T]                    │
-│ ├─ 生成因果建议: 隐私预算分配策略                │
-│ └─ 输出: 因果报告 + 隐私预算建议                │
-│ 时间: ~10ms                                      │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│ 阶段4: 隐私预算分配（规则-based + 因果指导）     │
-│ 规则:                                            │
-│   - 敏感区域（人脸）: privacy = 1.0             │
-│   - 任务区域（物体）: privacy = 0.3             │
-│   - 背景区域: privacy = 0.0                     │
-│ 因果调整: 根据因果分析结果微调                  │
-│ 输出: 隐私预算图 P(x,y)                         │
-│ 时间: <1ms                                       │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│ 阶段5: 分层加密（利用现有组件）                  │
-│                                                 │
-│ Layer 1: 混沌置乱（已有，5D混沌系统）           │
-│   - Arnold变换: 打乱像素位置                    │
-│   - 迭代次数: 固定5次                           │
-│   - 5D超混沌扩散: 像素值混淆                    │
-│                                                 │
-│ Layer 2: 频域语义控制（已有）                   │
-│   - FFT变换（比DWT快）                          │
-│   - LL子带: 弱扰动（保留语义）                 │
-│   - LH/HL/HH子带: 强扰动（破坏细节）           │
-│   - 根据P(x,y)调整扰动强度                      │
-│                                                 │
-│ 输出: 加密图像 I_enc                            │
-│ 时间: ~100ms (GPU)                              │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│ 阶段6: 密文域ML推理（新设计）                    │
-│                                                 │
-│ 输入: I_enc（加密图像）                         │
-│ 处理: 直接在I_enc上运行ML模型                   │
-│ 输出: 预测结果（分类/分割/检测）                │
-│ 时间: ~50ms (取决于模型复杂度)                  │
-│                                                 │
-│ 关键: 无需解密，直接推理                        │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│ 阶段7: 因果效应计算（后处理分析）                │
-│                                                 │
-│ ├─ 计算ATE: E[Y(high_privacy) - Y(low_privacy)]│
-│ ├─ 计算CATE: E[Y(high) - Y(low) | X=sensitive] │
-│ ├─ 生成可解释报告: "为什么这样加密？"            │
-│ └─ 输出: 因果分析报告                           │
-│ 时间: ~5ms                                       │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│ 阶段8: 可验证性证明（轻量级Hash Commitment）     │
-│                                                 │
-│ 生成: Hash Commitment + HMAC                    │
-│ 证明: I_enc确实来自I，且加密正确                │
-│ 验证: 无需密钥即可验证                          │
-│ 时间: ~10ms                                      │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Causal-VSE-PC Pipeline                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                   │
+│  │ 1. 输入图像  │───▶│ 2. 语义分析  │───▶│ 3. 因果预算  │                   │
+│  │    Image     │    │ SemanticMask │    │ CausalBudget │                   │
+│  └──────────────┘    └──────────────┘    └──────────────┘                   │
+│                                                 │                            │
+│                                                 ▼                            │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                   │
+│  │ 6. 攻击评估  │◀───│ 5. 训练/推理 │◀───│ 4. 双视图加密│                   │
+│  │ 5类+A2      │    │ P2P/Z2Z/Mix2Z│    │ Z-view+C-view│                   │
+│  └──────────────┘    └──────────────┘    └──────────────┘                   │
+│         │                                       │                            │
+│         ▼                                       ▼                            │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                   │
+│  │ 7. 因果效应  │    │ 8. 安全评估  │    │ 9. 结果验证  │                   │
+│  │ ATE/CATE    │    │ NIST/Tamper  │    │ ValidateRun  │                   │
+│  └──────────────┘    └──────────────┘    └──────────────┘                   │
+│                                                 │                            │
+│                                                 ▼                            │
+│                              ┌──────────────────────────────┐               │
+│                              │ 10. 输出: 8张主图 + CSV表格  │               │
+│                              └──────────────────────────────┘               │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 二、详细工作流程说明
+## 二、各阶段详细说明
 
-### 2.1 阶段3：因果分析（核心创新）
-
-```
-输入：
-├─ M_semantic: [B, 1, H, W] 语义掩码
-├─ T: 任务类型 {'classification', 'segmentation', 'detection'}
-└─ 历史数据: 历史加密-性能对
-
-处理步骤：
-
-Step 1: 构建因果图 (Structural Causal Model, SCM)
-├─ 节点:
-│   ├─ X: 语义区域类型（敏感/任务相关/背景）
-│   ├─ T: 任务类型（分类/分割/检测）
-│   ├─ Z: 隐私预算分配（加密强度）
-│   └─ Y: ML任务性能（准确率/mIoU/mAP）
-│
-├─ 边:
-│   ├─ X → Z: 语义决定隐私预算
-│   ├─ T → Z: 任务类型影响隐私预算
-│   └─ Z → Y: 隐私预算影响ML性能
-│
-└─ 输出: 因果图 G
-
-Step 2: 计算历史基线
-├─ 收集: 历史加密-性能对 {Z_i, Y_i}
-├─ 估计: E[Y | X, T] = 基线性能
-└─ 输出: baseline_performance
-
-Step 3: 生成因果建议
-├─ 反事实推理: "如果使用high_privacy会怎样？"
-├─ ATE估计: E[Y(high) - Y(low) | X, T]
-├─ 建议生成: 基于ATE的隐私预算分配建议
-└─ 输出: causal_suggestion
-
-Step 4: 生成因果解释
-├─ 自然语言生成:
-│   "人脸区域加密的识别率下降效应为-0.95，
-│    任务区域加密的分类准确率下降效应为-0.10，
-│    因此建议对人脸区域使用强加密(privacy=1.0)，
-│    对任务区域使用弱加密(privacy=0.3)"
-│
-└─ 输出: causal_report (可解释的加密策略)
-```
-
-### 2.2 阶段7：因果效应计算（后处理）
-
-```
-输入：
-├─ I_encrypted: 加密图像
-├─ predictions: ML预测结果
-├─ ground_truth: 真实标签
-└─ P(x,y): 隐私预算图
-
-处理步骤：
-
-Step 1: 性能评估
-├─ 计算: accuracy / mIoU / mAP
-└─ 输出: performance_metrics
-
-Step 2: 计算ATE (Average Treatment Effect)
-├─ 干预对比:
-│   ├─ 高隐私组: privacy > 0.7
-│   └─ 低隐私组: privacy < 0.3
-│
-├─ ATE计算:
-│   ATE = E[Y(high) - Y(low)]
-│       = mean(Y_high) - mean(Y_low)
-│
-└─ 输出: ATE值
-
-Step 3: 计算CATE (Conditional ATE)
-├─ CATE(X=sensitive):
-│   CATE = E[Y(high) - Y(low) | X=sensitive]
-│
-├─ CATE(X=task_relevant):
-│   CATE = E[Y(high) - Y(low) | X=task_relevant]
-│
-└─ 输出: CATE值（区域级因果效应）
-
-Step 4: 生成因果报告
-├─ 汇总: ATE, CATE, 性能指标
-├─ 可视化: 因果效应图
-└─ 输出: causal_analysis_report
-```
-
----
-
-## 三、完整流程代码框架
-
-### 3.1 主流程函数
+### 2.1 阶段1-3: 数据准备
 
 ```python
-def causal_vse_pc_pipeline(image, task_type, privacy_requirement):
-    """
-    Causal-VSE-PC完整流程（含因果分析）
-    
-    参数:
-        image: 原始图像 [B, C, H, W]
-        task_type: 任务类型 {'classification', 'segmentation', 'detection'}
-        privacy_requirement: 隐私需求 [0.0, 1.0]
-    
-    返回:
-        encrypted: 加密图像
-        predictions: ML预测结果
-        proof: 可验证性证明
-        causal_report: 因果分析报告
-    """
-    
-    # 1. 语义分析
-    semantic_mask = unet_semantic_analysis(image)  # [B, 1, H, W]
-    
-    # 2. 因果分析（核心创新）
-    causal_analyzer = CausalPrivacyAnalyzer()
-    causal_suggestion = causal_analyzer.analyze_allocation(
-        semantic_mask, task_type
-    )
-    
-    # 3. 隐私预算分配（因果指导）
-    privacy_allocator = AdaptivePrivacyBudget()
-    privacy_map = privacy_allocator.allocate(
-        semantic_mask, 
-        task_type, 
-        privacy_requirement,
-        causal_suggestion=causal_suggestion  # 因果建议
-    )  # [B, 1, H, W]
-    
-    # 4. 分层加密
-    encrypted, enc_info = encrypt_layered(
-        image,
-        semantic_mask,
-        privacy_map
-    )
-    
-    # 5. 密文域ML推理
-    predictions = ciphertext_ml_inference(
-        encrypted,
-        ml_model,
-        task_type
-    )
-    
-    # 6. 因果效应计算（后处理）
-    causal_report = causal_analyzer.compute_causal_effects(
-        semantic_mask,
-        privacy_map,
-        predictions,
-        ground_truth
-    )
-    
-    # 7. 可验证性证明
-    proof = generate_verification_proof(
-        image,
-        encrypted,
-        enc_info
-    )
-    
-    return {
-        'encrypted': encrypted,
-        'predictions': predictions,
-        'proof': proof,
-        'causal_report': causal_report,
-        'enc_info': enc_info
-    }
+# 1. 输入图像
+image = load_image("path/to/image.jpg")  # [B, C, H, W]
+
+# 2. 语义分析
+from src.data.semantic_mask_generator import SemanticMaskGenerator
+mask_gen = SemanticMaskGenerator()
+semantic_mask = mask_gen.generate(image)  # {face, background, sensitive_attr}
+
+# 3. 因果预算分配
+from src.data.causal_budget_allocator import CausalBudgetAllocator
+allocator = CausalBudgetAllocator()
+privacy_map = allocator.allocate(
+    semantic_mask, 
+    privacy_level=0.5,
+    task_type="classification"
+)
 ```
 
-### 3.2 因果分析组件接口
+### 2.2 阶段4: 双视图加密
 
 ```python
-class CausalPrivacyAnalyzer:
-    """
-    因果隐私分析器（核心创新）
-    """
-    
-    def analyze_allocation(self, semantic_mask, task_type):
-        """
-        分析隐私预算分配的因果合理性
-        
-        返回:
-            causal_suggestion: 因果建议（隐私预算分配策略）
-        """
-        # 1. 构建因果图
-        causal_graph = self._build_causal_graph(semantic_mask, task_type)
-        
-        # 2. 计算历史基线
-        baseline = self._compute_baseline(task_type)
-        
-        # 3. 生成因果建议
-        suggestion = self._generate_suggestion(causal_graph, baseline)
-        
-        return suggestion
-    
-    def compute_causal_effects(self, semantic_mask, privacy_map, 
-                                predictions, ground_truth):
-        """
-        计算因果效应（后处理）
-        
-        返回:
-            causal_report: 因果分析报告
-        """
-        # 1. 性能评估
-        performance = self._evaluate_performance(predictions, ground_truth)
-        
-        # 2. 计算ATE
-        ate = self._compute_ate(privacy_map, performance)
-        
-        # 3. 计算CATE
-        cate = self._compute_cate(semantic_mask, privacy_map, performance)
-        
-        # 4. 生成报告
-        report = self._generate_report(ate, cate, performance)
-        
-        return report
+from src.cipher.dual_view_engine import DualViewEngine
+
+# 初始化加密引擎
+engine = DualViewEngine(master_key=key)
+
+# 生成双视图
+z_view, c_view, enc_info = engine.encrypt(
+    image,
+    privacy_map=privacy_map,
+    privacy_level=0.5
+)
+
+# Z-view: 用于ML推理（保留语义）
+# C-view: 用于安全存储（AEAD封装）
+```
+
+### 2.3 阶段5: 训练/推理
+
+```python
+from src.training.training_mode_manager import TrainingModeManager
+
+# 训练模式管理
+mode_manager = TrainingModeManager()
+
+# 4种训练模式
+# P2P: Plaintext → Plaintext (基线)
+# P2Z: Plaintext → Z-view (域迁移)
+# Z2Z: Z-view → Z-view (完全加密)
+# Mix2Z: 50% Plaintext + 50% Z-view → Z-view (混合)
+
+dataloader = mode_manager.get_dataloader(
+    mode="Z2Z",
+    split="train"
+)
+```
+
+### 2.4 阶段6: 攻击评估
+
+```python
+from src.evaluation.attack_framework import AttackType, ThreatLevel
+from src.evaluation.attacks import (
+    FaceVerificationAttack,
+    AttributeInferenceAttack,
+    ReconstructionAttack,
+    MembershipInferenceAttack,
+    PropertyInferenceAttack,
+    AdaptiveAttacker
+)
+
+# 5类攻击 + 3级威胁
+attacks = [
+    FaceVerificationAttack(),      # TAR@FAR=1e-3
+    AttributeInferenceAttack(),    # AUC
+    ReconstructionAttack(),        # identity_similarity
+    MembershipInferenceAttack(),   # AUC (Shadow Models)
+    PropertyInferenceAttack(),     # AUC
+]
+
+# A2自适应攻击（最强威胁）
+adaptive = AdaptiveAttacker()
+adaptive.design_adaptive_strategy(algorithm_info, mask_gen, allocator)
+```
+
+### 2.5 阶段7: 因果效应估计
+
+```python
+from src.evaluation.causal_effects import CausalEffectEstimator
+
+estimator = CausalEffectEstimator()
+
+# ATE: 平均处理效应
+ate = estimator.estimate_ate(intervention_results)
+# ATE = E[A|do(β=1)] - E[A|do(β=0)]
+
+# CATE: 条件平均处理效应
+cate = estimator.estimate_cate(intervention_results, condition="face")
+# CATE = E[A|do(β=1), X=face] - E[A|do(β=0), X=face]
+
+# 最优预算分配
+optimal = estimator.solve_optimal_allocation(
+    ate, 
+    utility_threshold=0.65
+)
+```
+
+### 2.6 阶段8: 安全评估
+
+```python
+from src.evaluation.cview_security import CViewSecurityEvaluator
+
+evaluator = CViewSecurityEvaluator()
+
+# 主证据: 安全目标验证
+tamper_results = evaluator.test_tamper(c_view)      # fail_rate ≥ 99%
+replay_results = evaluator.test_replay(c_view)      # reject_rate = 100%
+
+# 诊断证据: 实现质量
+nist_results = evaluator.run_nist_tests(c_view)     # p_value ≥ 0.01
+avalanche_results = evaluator.test_avalanche(c_view) # flip_rate ∈ [0.45, 0.55]
+```
+
+### 2.7 阶段9: 结果验证
+
+```python
+from src.protocol.validate_run import ValidateRun
+
+validator = ValidateRun(run_dir)
+
+# R1-R10 红线检查
+report = validator.validate_all()
+
+# 红线检查项:
+# R1: protocol_version == schema_version
+# R2: coverage ≥ 98%
+# R3: A2 存在且 attacker_strength=full
+# R4: replay reject_rate = 100%
+# R5: tamper fail_rate ≥ 99%
+# R6: c_view guard 无泄漏
+# R7: figure_manifest SHA256 可复现
+# R8: nonce 无重用
+# R9: train/val/test 零 ID 重叠
+# R10: 所有 CSV 字段完整
+```
+
+### 2.8 阶段10: 输出生成
+
+```python
+from src.evaluation.figure_generator import FigureGenerator
+
+generator = FigureGenerator(run_dir)
+
+# 生成8张主图
+generator.generate_all_figures()
+
+# 主图列表:
+# fig_utility_curve.png      - 效用随privacy_level变化
+# fig_attack_curves.png      - 五类攻击曲线+CI
+# fig_pareto_frontier.png    - 隐私-效用Pareto前沿
+# fig_causal_ate_cate.png    - ATE/CATE + CI
+# fig_cview_security_summary.png - C-view安全指标汇总
+# fig_ablation_summary.png   - 消融实验对比
+# fig_efficiency.png         - 效率对比
+# fig_robustness.png         - 鲁棒性测试结果
 ```
 
 ---
 
-## 四、关键工作流程对比
+## 三、训练模式对比
 
-### 4.1 传统VSE-PC vs Causal-VSE-PC
+| 模式 | 训练数据 | 测试数据 | 说明 |
+|------|----------|----------|------|
+| P2P | Plaintext | Plaintext | 基线（无隐私保护） |
+| P2Z | Plaintext | Z-view | 域迁移测试 |
+| Z2Z | Z-view | Z-view | 完全加密训练 |
+| Mix2Z | 50% P + 50% Z | Z-view | 混合训练 |
 
-| 阶段 | 传统VSE-PC | Causal-VSE-PC（新） |
-|------|-----------|-------------------|
-| **语义分析** | ✅ U-Net提取语义 | ✅ U-Net提取语义 |
-| **隐私分配** | ✅ 规则-based | ✅ 规则-based + **因果指导** |
-| **加密** | ✅ 分层加密 | ✅ 分层加密 |
-| **ML推理** | ✅ 密文域推理 | ✅ 密文域推理 |
-| **因果分析** | ❌ 无 | ✅ **因果分析（核心创新）** |
-| **可解释性** | ⚠️ 有限 | ✅ **因果解释（自然语言）** |
-| **可验证性** | ✅ Hash Commitment | ✅ Hash Commitment |
+**效用门槛**:
+- privacy_level=0.3 → 75% P2P
+- privacy_level=0.5 → 65% P2P
+- privacy_level=0.7 → 55% P2P
 
-### 4.2 因果分析带来的优势
+---
 
+## 四、攻击评估矩阵
+
+| 攻击类型 | attack_success映射 | 方向 |
+|----------|-------------------|------|
+| face_verification | TAR@FAR=1e-3 | ↓ 越低越好 |
+| attribute_inference | AUC | ↓ 越低越好 |
+| reconstruction | identity_similarity | ↓ 越低越好 |
+| membership_inference | AUC | ↓ 越低越好 |
+| property_inference | AUC | ↓ 越低越好 |
+
+**归一化公式**:
+- `privacy_protection = 1 - normalized(attack_success)`
+- 范围: [0, 1]，0=完全保护，1=无保护
+
+---
+
+## 五、CI集成
+
+### 5.1 smoke_test模式
+
+```bash
+# 时间预算 < 20 min
+python scripts/run_benchmark.py --smoke_test
+
+# 配置:
+# - attacker_strength=lite
+# - 5 epochs, 1 实例化, 子集数据
+# - 用于管线健康检查
 ```
-1. 可解释性提升
-   - 传统: "为什么对人脸区域加密？" → "规则规定"
-   - 因果: "为什么对人脸区域加密？" → 
-          "因果分析显示，人脸区域加密的识别率下降效应为-0.95，
-           任务区域加密的分类准确率下降效应仅为-0.10，
-           因此建议对人脸区域使用强加密"
 
-2. 策略优化
-   - 传统: 固定规则
-   - 因果: 基于因果效应的动态调整
+### 5.2 full模式
 
-3. 理论深度
-   - 传统: 经验规则
-   - 因果: 结构因果模型（SCM）+ ATE/CATE
+```bash
+# 完整实验
+python scripts/run_benchmark.py --full
 
-4. 学术价值
-   - 传统: 组合创新
-   - 因果: 单点突破（因果推断驱动的加密策略）
+# 配置:
+# - attacker_strength=full
+# - 100 epochs, 全实例化, 全数据
+# - 用于主证据生成
 ```
 
 ---
 
-## 五、工作流程时间分析
-
-### 5.1 各阶段时间开销
+## 六、输出目录结构
 
 ```
-阶段1: 输入准备          < 1ms
-阶段2: 语义分析（U-Net）  ~5ms (GPU)
-阶段3: 因果分析          ~10ms (CPU, 可优化)
-阶段4: 隐私预算分配      < 1ms
-阶段5: 分层加密          ~100ms (GPU)
-阶段6: ML推理            ~50ms (GPU)
-阶段7: 因果效应计算      ~5ms (CPU)
-阶段8: 可验证性证明      ~10ms (CPU)
-
-总计: ~181ms (约5.5 FPS)
-目标: < 100ms (10+ FPS)
-
-优化方向:
-✅ 因果分析GPU加速: 10ms → 2ms
-✅ 加密流程优化: 100ms → 80ms
-✅ 批处理优化: 提升吞吐量
-
-优化后预计: ~140ms (约7 FPS)
-继续优化目标: ~100ms (10 FPS)
-```
-
-### 5.2 性能瓶颈
-
-```
-瓶颈1: 分层加密（~100ms）
-├─ Layer 1: 5D混沌序列生成 (~20ms)
-├─ Layer 1: Arnold变换 (~5ms)
-├─ Layer 2: FFT变换 (~10ms)
-├─ Layer 2: 频域扰动 (~30ms)
-└─ Layer 2: IFFT变换 (~10ms)
-
-优化方案:
-✅ GPU向量化（已实现）
-✅ 批处理优化（待实现）
-✅ 预计算混沌序列（待实现）
-
-瓶颈2: 因果分析（~10ms）
-├─ 因果图构建: ~2ms
-├─ 基线计算: ~5ms
-└─ 建议生成: ~3ms
-
-优化方案:
-✅ GPU加速（待实现）
-✅ 缓存历史数据（待实现）
-✅ 简化计算（可选）
+results/{exp_name}/{run_id}/
+├── meta/
+│   ├── config.yaml
+│   ├── protocol_version.txt
+│   ├── nonce_log.json
+│   ├── replay_cache.json
+│   └── hardware.json
+├── tables/
+│   ├── utility_metrics.csv
+│   ├── attack_metrics.csv
+│   ├── causal_effects.csv
+│   ├── security_metrics_cview.csv
+│   ├── ablation.csv
+│   ├── efficiency.csv
+│   ├── robustness_metrics.csv
+│   └── baseline_comparison.csv
+├── figures/
+│   ├── fig_utility_curve.png
+│   ├── fig_attack_curves.png
+│   ├── fig_pareto_frontier.png
+│   ├── fig_causal_ate_cate.png
+│   ├── fig_cview_security_summary.png
+│   ├── fig_ablation_summary.png
+│   ├── fig_efficiency.png
+│   └── fig_robustness.png
+├── logs/
+│   ├── stdout.log
+│   └── errors.log
+└── reports/
+    ├── validate_run_onepage.md
+    ├── figure_manifest.json
+    └── protocol_snapshot.md
 ```
 
 ---
 
-## 六、错误处理与异常情况
+## 七、实现状态
 
-### 6.1 常见错误处理
+### 已完成模块 ✅
 
-```
-1. 语义分析失败
-   - 检查: U-Net模型是否加载
-   - 处理: 使用默认语义掩码（全1）
-   - 日志: 记录错误信息
-
-2. 因果分析失败
-   - 检查: 历史数据是否足够
-   - 处理: 降级为纯规则-based分配
-   - 日志: 记录降级原因
-
-3. 加密失败
-   - 检查: 密钥是否正确
-   - 检查: 图像格式是否正确
-   - 处理: 抛出异常，中断流程
-
-4. ML推理失败
-   - 检查: 输入尺寸是否匹配
-   - 检查: 数值范围是否在[0,1]
-   - 处理: 返回默认预测值
-
-5. 因果效应计算失败
-   - 检查: 数据是否完整
-   - 处理: 返回部分计算结果
-   - 日志: 记录缺失数据
-```
+| 阶段 | 模块 | 状态 |
+|------|------|------|
+| 数据准备 | SemanticMaskGenerator | ✅ 完成 |
+| 数据准备 | CausalBudgetAllocator | ✅ 完成 |
+| 双视图加密 | DualViewEngine | ✅ 完成 |
+| 训练/推理 | TrainingModeManager | ✅ 完成 |
+| 攻击评估 | 5类攻击 + A2自适应 | ✅ 完成 |
+| 因果效应 | CausalEffectEstimator | ✅ 完成 |
+| 安全评估 | CViewSecurityEvaluator | ✅ 完成 |
+| 结果验证 | ValidateRun | ✅ 完成 |
+| 输出生成 | FigureGenerator | ✅ 完成 |
 
 ---
 
-## 七、工作流程总结
+## 八、相关文档
 
-### 7.1 核心流程要点
-
-```
-1. **8个阶段**: 输入→语义→因果→分配→加密→推理→因果效应→验证
-2. **因果分析**: 阶段3（事前）和阶段7（事后），双重保障
-3. **可解释性**: 因果报告生成，自然语言解释
-4. **利用现有组件**: 80%组件可直接使用
-5. **核心创新**: 因果推断驱动的加密策略
-```
-
-### 7.2 关键设计决策
-
-```
-✅ **因果分析在前**: 阶段3，指导隐私预算分配
-✅ **因果效应在后**: 阶段7，验证加密策略有效性
-✅ **规则+因果**: 规则-based + 因果指导，兼顾效率和准确性
-✅ **轻量级实现**: Hash Commitment（而非zk-SNARKs）
-✅ **可解释输出**: 自然语言因果报告
-```
-
----
-
-**相关文档**:
-- [返回总览](Causal-VSE-PC_项目总览.md)
-- [数据流向](Causal-VSE-PC_数据流向.md)
-- [数据集分析](Causal-VSE-PC_数据集分析与使用.md)
-- [目标与指标](Causal-VSE-PC_目标与指标.md)
-- [理论证明](Causal-VSE-PC_理论证明.md)
+- [项目总览](project_overview.md)
+- [开发日志](development_log.md)
+- [目标与指标](goals_and_metrics.md)
+- [设计文档](../.kiro/specs/top-journal-experiment-suite/design.md)

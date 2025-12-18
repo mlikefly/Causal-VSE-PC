@@ -214,19 +214,25 @@ $$\tau_{CATE}(X=x) = \sum_t \Delta(x,t) \cdot P(T=t|X=x)$$
 
 ---
 
-## 九、待补充与验证
+## 九、已完成实现
 
-- 置信区间实现与显著性检验  
-- 方差降低策略（重采样/稳健估计）  
-- 可验证性原型性能测量  
-- 更严安全模型（IND-CCA）作为扩展  
-{
-  "cells": [],
-  "metadata": {
-    "language_info": {
-      "name": "python"
-    }
-  },
-  "nbformat": 4,
-  "nbformat_minor": 2
-}
+以下理论组件已在代码中实现：
+
+- [x] 置信区间实现与显著性检验 (`src/evaluation/statistics_engine.py`)
+- [x] Bootstrap CI + BH-FDR多重比较校正
+- [x] 因果效应估计 ATE/CATE (`src/evaluation/causal_effects.py`)
+- [x] 可验证性原型 (`src/vse_pc/verifiable.py`)
+- [x] C-view安全评估 (NIST/Avalanche/Tamper)
+
+### 待扩展
+
+- 更严安全模型（IND-CCA）作为扩展
+- 方差降低策略优化
+
+---
+
+**相关文档**:
+- [项目总览](project_overview.md)
+- [数据流向](data_flow.md)
+- [工作流程](workflow.md)
+- [目标与指标](goals_and_metrics.md)

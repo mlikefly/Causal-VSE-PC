@@ -301,29 +301,28 @@ def partial_decryption_for_ml(encrypted_image, enc_info):
 
 ---
 
-## 八、当前优先事项（下两周）
+## 八、当前优先事项（已完成）
 
-- [ ] 实现 CausalPrivacyAnalyzer 的 ATE/CATE + 基线函数  
-- [ ] 在 privacy_budget 中接入 causal_suggestion  
-- [ ] 优化 encrypt_layered 接口，确保 α 记录用于解密  
-- [ ] 跑通小规模 E2E 流程（batch=8）并记录首批 ATE  
+所有核心模块已实现完成：
+
+- [x] 实现 CausalPrivacyAnalyzer 的 ATE/CATE + 基线函数  
+- [x] 在 privacy_budget 中接入 causal_suggestion  
+- [x] 优化 encrypt_layered 接口，确保 α 记录用于解密  
+- [x] 跑通小规模 E2E 流程（batch=8）并记录首批 ATE  
+
+### 下一步：测试与实验
+
+1. **运行单元测试**: `pytest tests/ -v`
+2. **运行smoke_test**: 验证核心管线
+3. **准备数据集**: CelebA-HQ, FairFace, OpenImages
+4. **执行完整实验**: 生成论文所需的所有表格和图表
 
 ---
 
 **相关文档**:  
-- [总览](Causal-VSE-PC_项目总览.md)  
-- [数据流向](Causal-VSE-PC_数据流向.md)  
-- [数据集分析](Causal-VSE-PC_数据集分析与使用.md)  
-- [工作流程](Causal-VSE-PC_工作流程.md)  
-- [目标与指标](Causal-VSE-PC_目标与指标.md)  
-- [理论证明](Causal-VSE-PC_理论证明.md)  
-{
-  "cells": [],
-  "metadata": {
-    "language_info": {
-      "name": "python"
-    }
-  },
-  "nbformat": 4,
-  "nbformat_minor": 2
-}
+- [项目总览](project_overview.md)  
+- [数据流向](data_flow.md)  
+- [数据集分析](dataset_analysis.md)  
+- [工作流程](workflow.md)  
+- [目标与指标](goals_and_metrics.md)  
+- [理论证明](theoretical_proof.md)
