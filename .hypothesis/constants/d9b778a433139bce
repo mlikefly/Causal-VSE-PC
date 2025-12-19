@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\vse_pc\privacy_budget.py
+# hypothesis_version: 6.148.7
+
+[0.0, 0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0, 256, '__main__', 'background', 'classification', 'cpu', 'cuda', 'detection', 'privacy_budget', 'segmentation', 'sensitive', 'task', 'task_relevant', '✓ 测试完成', '测试自适应隐私预算分配器']

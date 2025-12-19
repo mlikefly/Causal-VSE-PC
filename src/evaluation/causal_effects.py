@@ -122,7 +122,7 @@ class CausalEffectRow:
     Requirements: §9.2
     """
     region: str
-    effect_type: str  # ATE or CATE
+    effect_type: str  # ATE 或 CATE
     ate: float
     ate_std: float
     ci_low: float
@@ -132,7 +132,7 @@ class CausalEffectRow:
     stat_method: str
     n_boot: int
     family_id: str
-    condition: Optional[str] = None  # For CATE: condition description
+    condition: Optional[str] = None  # 对于 CATE：条件描述
     
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\utils\experiment_tracker.py
+# hypothesis_version: 6.148.7
+
+[100, 8192, '%Y%m%d_%H%M%S', '*', '--abbrev-ref', '=', 'HEAD', 'PYTHONHASHSEED', 'config', 'cuda_available', 'cuda_version', 'data_versions', 'deterministic_cudnn', 'experiment_name', 'git', 'git_branch', 'git_commit', 'metadata', 'model_weights', 'python_version', 'pytorch_version', 'r', 'rb', 'reproducibility', 'results', 'results/experiments', 'rev-parse', 'seed', 'timestamp', 'utf-8', 'w', '实验配置摘要']

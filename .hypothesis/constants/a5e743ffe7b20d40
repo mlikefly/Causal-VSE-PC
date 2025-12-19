@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\vse_pc\causal_analysis.py
+# hypothesis_version: 6.148.7
+
+[-0.3, -0.2, -0.15, -0.05, 0.0, 1e-06, 0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.85, 0.9, 0.95, 0.975, 1.0, 'T', 'X', 'Y', 'Z', 'acc', 'allocation_analysis', 'ate', 'avg_privacy_task', 'background', 'background_ratio', 'cate', 'causal_graph', 'ci_level', 'ci_lower', 'ci_upper', 'classification', 'consistency', 'default', 'detection', 'edges', 'explanation', 'interpretation', 'map', 'miou', 'n', 'nodes', 'privacy_budget', 'rationale', 'region_type', 'residual_effect', 'segmentation', 'semantic_mask', 'sensitive', 'sensitive_ratio', 'std', 'suggestion', 'summary', 'task', 'task_ratio', 'task_type']

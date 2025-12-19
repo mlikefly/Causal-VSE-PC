@@ -155,10 +155,20 @@
 
 项目代码实现已完成，接下来进入测试调试阶段：
 
-1. **运行单元测试**: `pytest tests/ -v`
-2. **运行smoke_test**: 验证核心管线
-3. **准备数据集**: CelebA-HQ, FairFace, OpenImages
-4. **执行完整实验**: 生成论文所需的所有表格和图表
+1. **运行单元测试**: `pytest tests/ -v` 或 `python scripts/run_tests.py`
+2. **运行快速测试**: `python scripts/run_tests.py --quick`
+3. **运行smoke_test**: 验证核心管线
+4. **准备数据集**: CelebA-HQ, FairFace, OpenImages
+5. **执行完整实验**: 生成论文所需的所有表格和图表
+
+### 新增测试文件 (2024-12-18)
+
+| 测试文件 | 覆盖模块 | 验证属性 |
+|----------|----------|----------|
+| `test_protocol_manager.py` | `src/protocol/protocol_manager.py` | Property 13 |
+| `test_statistics_engine.py` | `src/evaluation/statistics_engine.py` | Property 11, 16 |
+| `test_cview_security.py` | `src/evaluation/cview_security.py` | Property 4, 5 |
+| `test_attack_framework.py` | `src/evaluation/attack_framework.py` | Property 3, 14 |
 
 ---
 

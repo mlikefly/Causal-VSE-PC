@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\attack_evaluator.py
+# hypothesis_version: 6.148.7
+
+[0.0, 1e-08, 0.01, 0.03, 0.5, 1.0, '\n【可链接性攻击】', '\n【属性推断攻击】', '\n【身份识别攻击】', '\n【重建攻击】', '=', 'accuracy_drop', 'accuracy_encrypted', 'accuracy_original', 'attribute_inference', 'attribute_name', 'cpu', 'cuda', 'distance_ratio', 'embedding_dim', 'identity', 'inf', 'inter_class_distance', 'intra_class_distance', 'linkability', 'linkage_auc', 'lpips', 'mse', 'num_classes', 'num_identities', 'num_samples', 'psnr', 'reconstruction', 'sensitive_psnr', 'sensitive_ssim', 'ssim', 'top1_accuracy', 'top5_accuracy', 'unknown', '攻击评估报告']

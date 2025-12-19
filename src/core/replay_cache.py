@@ -1,10 +1,10 @@
 """
-Replay Cache for Top-Journal Experiment Suite.
+重放缓存
 
-Implements replay detection for C-view AEAD ciphertexts.
-Corresponds to design.md §9.6.1.1.
+实现 C-view AEAD 密文的重放检测。
+对应 design.md §9.6.1.1。
 
-**Validates: Property 4 - C-view 安全测试完整性（抗重放部分）**
+**验证: 属性 4 - C-view 安全测试完整性（抗重放部分）**
 """
 
 import json
@@ -15,16 +15,16 @@ from typing import Dict, List, Optional, Set, Tuple
 
 
 class ReplayDetectedError(Exception):
-    """Raised when replay attack is detected."""
+    """检测到重放攻击时抛出此异常"""
     pass
 
 
 @dataclass
 class ReplayCacheEntry:
     """
-    Entry in replay cache.
+    重放缓存条目
     
-    Stores metadata about a ciphertext for audit purposes.
+    存储密文的元数据用于审计目的。
     """
     key_id: str
     nonce_hex: str
@@ -34,7 +34,7 @@ class ReplayCacheEntry:
     purpose: Optional[str] = None
     
     def to_dict(self) -> Dict:
-        """Convert to dictionary for serialization."""
+        """转换为字典用于序列化"""
         return {
             'key_id': self.key_id,
             'nonce_hex': self.nonce_hex,
@@ -48,18 +48,17 @@ class ReplayCacheEntry:
 @dataclass
 class ReplayCache:
     """
-    Replay detection cache.
+    重放检测缓存
     
-    AEAD itself does not prevent replay attacks. This cache tracks
-    all seen (key_id, nonce, tag) tuples and rejects duplicates.
+    AEAD 本身不能防止重放攻击。此缓存跟踪所有已见的 (key_id, nonce, tag) 元组并拒绝重复。
     
-    Key: (key_id, nonce, full_tag)
-    Lifecycle: per-run (each experiment run has independent cache)
-    Persistence: writes to meta/replay_cache.json at run end
+    键: (key_id, nonce, full_tag)
+    生命周期: 每次运行（每个实验运行有独立的缓存）
+    持久化: 在运行结束时写入 meta/replay_cache.json
     
-    Attributes:
-        run_dir: Path to run directory
-        key_id: Identifier for the encryption key
+    属性:
+        run_dir: 运行目录路径
+        key_id: 加密密钥的标识符
     """
     
     run_dir: Path
@@ -71,7 +70,7 @@ class ReplayCache:
     accept_count: int = field(default=0, init=False)
     
     def __post_init__(self):
-        """Initialize paths."""
+        """初始化路径"""
         if isinstance(self.run_dir, str):
             self.run_dir = Path(self.run_dir)
         self.cache_path = self.run_dir / "meta" / "replay_cache.json"
@@ -85,35 +84,35 @@ class ReplayCache:
         purpose: Optional[str] = None,
     ) -> bool:
         """
-        Check if ciphertext is a replay, record if new.
+        检查密文是否为重放，如果是新的则记录。
         
-        Uses full tag to ensure zero collision probability.
-        For research per-run cache (typically <100k samples),
-        collision probability < 10^-9 is acceptable.
+        使用完整 tag 确保零碰撞概率。
+        对于研究用的每次运行缓存（通常 <100k 样本），
+        碰撞概率 < 10^-9 是可接受的。
         
         Args:
-            nonce: 12-byte nonce
-            tag: Authentication tag (typically 16 bytes for AES-GCM)
-            ciphertext: Optional ciphertext (not used in key, for audit only)
-            image_id: Optional image identifier for audit
-            purpose: Optional purpose for audit
+            nonce: 12 字节 nonce
+            tag: 认证标签（AES-GCM 通常为 16 字节）
+            ciphertext: 可选的密文（不用于键，仅用于审计）
+            image_id: 可选的图像标识符用于审计
+            purpose: 可选的用途用于审计
             
         Returns:
-            True: New ciphertext, allowed to decrypt
-            False: Replay detected, reject decryption
+            True: 新密文，允许解密
+            False: 检测到重放，拒绝解密
         """
-        # Use full tag to ensure zero collision
+        # 使用完整 tag 确保零碰撞
         key = (self.key_id, nonce, tag)
         
         if key in self.seen:
             self.reject_count += 1
-            return False  # Replay detected!
+            return False  # 检测到重放！
         
-        # Record new ciphertext
+        # 记录新密文
         self.seen.add(key)
         self.accept_count += 1
         
-        # Log entry for audit
+        # 记录条目用于审计
         entry = ReplayCacheEntry(
             key_id=self.key_id,
             nonce_hex=nonce.hex(),
@@ -135,30 +134,30 @@ class ReplayCache:
         purpose: Optional[str] = None,
     ) -> None:
         """
-        Strict version that raises exception on replay.
+        严格版本，检测到重放时抛出异常。
         
         Args:
-            nonce: 12-byte nonce
-            tag: Authentication tag
-            ciphertext: Optional ciphertext for audit
-            image_id: Optional image identifier for audit
-            purpose: Optional purpose for audit
+            nonce: 12 字节 nonce
+            tag: 认证标签
+            ciphertext: 可选的密文用于审计
+            image_id: 可选的图像标识符用于审计
+            purpose: 可选的用途用于审计
             
         Raises:
-            ReplayDetectedError: If replay is detected
+            ReplayDetectedError: 如果检测到重放
         """
         if not self.check_and_record(nonce, tag, ciphertext, image_id, purpose):
             raise ReplayDetectedError(
-                f"Replay detected: key_id={self.key_id}, "
+                f"检测到重放: key_id={self.key_id}, "
                 f"nonce={nonce.hex()}, tag={tag.hex()[:16]}..."
             )
     
     def persist(self) -> Path:
         """
-        Persist replay cache to disk.
+        将重放缓存持久化到磁盘
         
         Returns:
-            Path to written replay_cache.json
+            写入的 replay_cache.json 路径
         """
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
         
@@ -177,29 +176,29 @@ class ReplayCache:
     
     def get_reject_rate(self) -> float:
         """
-        Calculate replay reject rate.
+        计算重放拒绝率
         
-        For security validation, this should be 100% (all replays rejected).
+        对于安全验证，这应该是 100%（所有重放都被拒绝）。
         
         Returns:
-            Reject rate as fraction (0.0 to 1.0)
+            拒绝率（0.0 到 1.0 的分数）
         """
         total_attempts = self.accept_count + self.reject_count
         if total_attempts == 0:
             return 0.0
-        # Reject rate = rejected / (total replay attempts)
-        # Note: accept_count is new ciphertexts, reject_count is replays
-        # If we have N unique + M replays, reject_rate = M / M = 100%
+        # 拒绝率 = 被拒绝的 / (总重放尝试次数)
+        # 注意: accept_count 是新密文，reject_count 是重放
+        # 如果我们有 N 个唯一 + M 个重放，reject_rate = M / M = 100%
         if self.reject_count == 0:
-            return 0.0  # No replays attempted
-        return 1.0  # All replays were rejected
+            return 0.0  # 没有重放尝试
+        return 1.0  # 所有重放都被拒绝
     
     def get_stats(self) -> Dict:
         """
-        Get cache statistics.
+        获取缓存统计信息
         
         Returns:
-            Dictionary with cache statistics
+            包含缓存统计信息的字典
         """
         return {
             'key_id': self.key_id,
@@ -210,7 +209,7 @@ class ReplayCache:
         }
     
     def clear(self) -> None:
-        """Clear the cache (for testing purposes)."""
+        """清空缓存（用于测试目的）"""
         self.seen.clear()
         self.entries.clear()
         self.accept_count = 0
@@ -219,14 +218,14 @@ class ReplayCache:
     @classmethod
     def load_from_cache(cls, cache_path: Path, key_id: str) -> 'ReplayCache':
         """
-        Load ReplayCache from existing cache file.
+        从现有缓存文件加载 ReplayCache
         
         Args:
-            cache_path: Path to replay_cache.json
-            key_id: Key identifier
+            cache_path: replay_cache.json 的路径
+            key_id: 密钥标识符
             
         Returns:
-            ReplayCache with loaded state
+            加载状态后的 ReplayCache
         """
         run_dir = cache_path.parent.parent
         cache = cls(run_dir=run_dir, key_id=key_id)
@@ -238,7 +237,7 @@ class ReplayCache:
             cache.accept_count = data.get('accept_count', 0)
             cache.reject_count = data.get('reject_count', 0)
             
-            # Rebuild seen set and entries
+            # 重建 seen 集合和条目
             for entry_dict in data.get('entries', []):
                 entry = ReplayCacheEntry(
                     key_id=entry_dict['key_id'],
@@ -250,7 +249,7 @@ class ReplayCache:
                 )
                 cache.entries.append(entry)
                 
-                # Rebuild seen set
+                # 重建 seen 集合
                 nonce = bytes.fromhex(entry_dict['nonce_hex'])
                 tag = bytes.fromhex(entry_dict['tag_hex'])
                 cache.seen.add((key_id, nonce, tag))
@@ -264,15 +263,15 @@ def generate_replay_results_csv(
     test_results: Optional[List[Dict]] = None,
 ) -> Path:
     """
-    Generate replay_results.csv for validation.
+    生成 replay_results.csv 用于验证
     
     Args:
-        cache: ReplayCache instance
-        output_path: Path to output CSV
-        test_results: Optional list of test results
+        cache: ReplayCache 实例
+        output_path: 输出 CSV 的路径
+        test_results: 可选的测试结果列表
         
     Returns:
-        Path to written CSV
+        写入的 CSV 路径
     """
     import csv
     
@@ -292,7 +291,7 @@ def generate_replay_results_csv(
         }
     ]
     
-    # Add individual test results if provided
+    # 如果提供了单独的测试结果则添加
     if test_results:
         rows.extend(test_results)
     

@@ -270,8 +270,8 @@ class CIIntegration:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         script_content = f'''#!/bin/bash
-# Smoke Test Script
-# Generated: {datetime.now().isoformat()}
+# 冒烟测试脚本
+# 生成时间: {datetime.now().isoformat()}
 # 
 # CI 健康检查模式
 # - 时间预算: < 20 min

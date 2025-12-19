@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\attacks\membership_inference.py
+# hypothesis_version: 6.148.7
+
+[1e-08, 0.25, 0.5, 'AUC', 'accuracy', 'advantage', 'failed', 'member_samples', 'non_member_samples', 'numpy', 'precision', 'recall', 'shadow_train_data', 'shadow_train_labels', 'softmax', 'success', 'to']

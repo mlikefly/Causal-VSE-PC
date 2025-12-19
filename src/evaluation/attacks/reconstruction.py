@@ -1,9 +1,9 @@
 """
-Reconstruction Attack implementation.
+重建攻击实现。
 
-attack_success = identity_similarity (per GC7)
+attack_success = identity_similarity（按 GC7）
 
-**Validates: Requirements R2.AC5**
+**验证: 需求 R2.AC5**
 """
 
 from dataclasses import dataclass
@@ -23,7 +23,7 @@ from ..attack_framework import (
 
 @dataclass
 class ReconstructionMetrics:
-    """Reconstruction attack metrics."""
+    """重建攻击指标。"""
     identity_similarity: float  # attack_success
     psnr: float
     ssim: float
@@ -35,24 +35,23 @@ class ReconstructionMetrics:
 @AttackRegistry.register(AttackType.RECONSTRUCTION)
 class ReconstructionAttack(AttackBase):
     """
-    Reconstruction Attack.
+    重建攻击。
     
-    Evaluates whether an attacker can reconstruct original images
-    from Z-view using decoder networks.
+    评估攻击者是否能从 Z-view 使用解码器网络重建原始图像。
     
-    attack_success = identity_similarity (lower is better for privacy)
+    attack_success = identity_similarity（越低隐私保护越好）
     """
     
     attack_type = AttackType.RECONSTRUCTION
     
     def __init__(self, device: str = None, decoder=None, face_encoder=None):
         """
-        Initialize reconstruction attack.
+        初始化重建攻击。
         
-        Args:
-            device: Compute device
-            decoder: Reconstruction decoder (U-Net, VAE, etc.)
-            face_encoder: Face encoder for identity similarity
+        参数:
+            device: 计算设备
+            decoder: 重建解码器（U-Net、VAE 等）
+            face_encoder: 用于身份相似度的人脸编码器
         """
         super().__init__(device)
         self.decoder = decoder
@@ -60,33 +59,33 @@ class ReconstructionAttack(AttackBase):
     
     def fit(self, ctx: AttackFitContext, **kwargs) -> None:
         """
-        Train the reconstruction decoder.
+        训练重建解码器。
         
-        Args:
-            ctx: Attack training context
-            train_encrypted: Encrypted images (Z-view)
-            train_original: Original images (for training)
+        参数:
+            ctx: 攻击训练上下文
+            train_encrypted: 加密图像（Z-view）
+            train_original: 原始图像（用于训练）
         """
         self.validate_threat_level(ctx)
         self.fit_context = ctx
         
-        # In practice, decoder would be trained here
-        # For now, we assume pre-trained decoder
+        # 实际中解码器会在这里训练
+        # 目前假设使用预训练的解码器
         
         self.is_fitted = True
     
     def evaluate(self, ctx: AttackEvalContext, **kwargs) -> AttackResult:
         """
-        Evaluate reconstruction attack.
+        评估重建攻击。
         
-        Args:
-            ctx: Evaluation context
-            encrypted_images: Encrypted images (Z-view)
-            original_images: Original images (ground truth)
-            sensitive_mask: Optional mask for sensitive regions
+        参数:
+            ctx: 评估上下文
+            encrypted_images: 加密图像（Z-view）
+            original_images: 原始图像（真值）
+            sensitive_mask: 可选的敏感区域掩码
             
-        Returns:
-            AttackResult with identity_similarity as attack_success
+        返回:
+            以 identity_similarity 作为 attack_success 的 AttackResult
         """
         encrypted_images = kwargs.get('encrypted_images')
         original_images = kwargs.get('original_images')
@@ -121,7 +120,7 @@ class ReconstructionAttack(AttackBase):
         )
     
     def _reconstruct(self, encrypted_images) -> np.ndarray:
-        """Reconstruct images from encrypted."""
+        """从加密图像重建。"""
         if self.decoder is not None:
             import torch
             with torch.no_grad():
@@ -132,7 +131,7 @@ class ReconstructionAttack(AttackBase):
                     reconstructed = reconstructed.cpu().numpy()
             return reconstructed
         
-        # Fallback: return encrypted as-is (worst case for attacker)
+        # 回退：直接返回加密图像（攻击者最坏情况）
         if hasattr(encrypted_images, 'numpy'):
             return encrypted_images.numpy()
         return encrypted_images
@@ -143,24 +142,24 @@ class ReconstructionAttack(AttackBase):
         original_images,
         sensitive_mask=None
     ) -> ReconstructionMetrics:
-        """Compute reconstruction metrics."""
-        # Reconstruct
+        """计算重建指标。"""
+        # 重建
         reconstructed = self._reconstruct(encrypted_images)
         
         if hasattr(original_images, 'numpy'):
             original_images = original_images.numpy()
         
-        # Compute identity similarity
+        # 计算身份相似度
         identity_sim = self._compute_identity_similarity(
             reconstructed, original_images
         )
         
-        # Compute image quality metrics
+        # 计算图像质量指标
         psnr = self._compute_psnr(reconstructed, original_images)
         ssim = self._compute_ssim(reconstructed, original_images)
         mse = np.mean((reconstructed - original_images) ** 2)
         
-        # Sensitive region metrics
+        # 敏感区域指标
         sensitive_psnr = None
         sensitive_ssim = None
         if sensitive_mask is not None:
@@ -189,7 +188,7 @@ class ReconstructionAttack(AttackBase):
         reconstructed: np.ndarray,
         original: np.ndarray
     ) -> float:
-        """Compute identity similarity using face encoder."""
+        """使用人脸编码器计算身份相似度。"""
         if self.face_encoder is not None:
             import torch
             with torch.no_grad():
@@ -203,14 +202,14 @@ class ReconstructionAttack(AttackBase):
                 recon_emb = self.face_encoder(recon_tensor)
                 orig_emb = self.face_encoder(orig_tensor)
                 
-                # Cosine similarity
+                # 余弦相似度
                 recon_emb = recon_emb / (recon_emb.norm(dim=1, keepdim=True) + 1e-8)
                 orig_emb = orig_emb / (orig_emb.norm(dim=1, keepdim=True) + 1e-8)
                 
                 similarity = (recon_emb * orig_emb).sum(dim=1).mean()
                 return float(similarity.cpu().numpy())
         
-        # Fallback: pixel-level cosine similarity
+        # 回退：像素级余弦相似度
         recon_flat = reconstructed.reshape(len(reconstructed), -1)
         orig_flat = original.reshape(len(original), -1)
         
@@ -222,7 +221,7 @@ class ReconstructionAttack(AttackBase):
         return float(np.mean(similarities))
     
     def _compute_psnr(self, pred: np.ndarray, target: np.ndarray) -> float:
-        """Compute PSNR."""
+        """计算 PSNR。"""
         mse = np.mean((pred - target) ** 2)
         if mse == 0:
             return float('inf')
@@ -230,7 +229,7 @@ class ReconstructionAttack(AttackBase):
         return float(10 * np.log10(max_val ** 2 / mse))
     
     def _compute_ssim(self, pred: np.ndarray, target: np.ndarray) -> float:
-        """Compute simplified SSIM."""
+        """计算简化的 SSIM。"""
         pred = pred.astype(np.float64)
         target = target.astype(np.float64)
         

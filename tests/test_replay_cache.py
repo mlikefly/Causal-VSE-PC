@@ -1,8 +1,8 @@
 """
-Tests for ReplayCache.
+重放缓存测试模块。
 
-Validates: Property 4 - C-view 安全测试完整性（抗重放部分）
-Validates: Requirements §9.6.1 - replay reject_rate = 100%
+验证: 属性 4 - C-view 安全测试完整性（抗重放部分）
+验证: 需求 §9.6.1 - replay reject_rate = 100%
 """
 
 import os
@@ -21,10 +21,10 @@ from src.core.replay_cache import (
 
 
 class TestReplayCacheEntry:
-    """Tests for ReplayCacheEntry dataclass."""
+    """ReplayCacheEntry 数据类测试。"""
     
     def test_entry_creation(self):
-        """Test basic entry creation."""
+        """测试基本条目创建。"""
         entry = ReplayCacheEntry(
             key_id="test_key",
             nonce_hex="0" * 24,
@@ -36,7 +36,7 @@ class TestReplayCacheEntry:
         assert entry.tag_hex == "0" * 32
     
     def test_entry_to_dict(self):
-        """Test entry serialization."""
+        """测试条目序列化。"""
         entry = ReplayCacheEntry(
             key_id="test_key",
             nonce_hex="aabbcc",
@@ -52,11 +52,11 @@ class TestReplayCacheEntry:
 
 
 class TestReplayCache:
-    """Tests for ReplayCache."""
+    """ReplayCache 测试。"""
     
     @pytest.fixture
     def temp_run_dir(self):
-        """Create temporary run directory."""
+        """创建临时运行目录。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             run_dir = Path(tmpdir) / "test_run"
             run_dir.mkdir(parents=True)
@@ -65,18 +65,18 @@ class TestReplayCache:
     
     @pytest.fixture
     def cache(self, temp_run_dir):
-        """Create ReplayCache instance."""
+        """创建 ReplayCache 实例。"""
         return ReplayCache(run_dir=temp_run_dir, key_id="test_key_001")
     
     def test_cache_creation(self, cache, temp_run_dir):
-        """Test cache initialization."""
+        """测试缓存初始化。"""
         assert cache.key_id == "test_key_001"
         assert cache.run_dir == temp_run_dir
         assert cache.accept_count == 0
         assert cache.reject_count == 0
     
     def test_check_and_record_new_ciphertext(self, cache):
-        """Test accepting new ciphertext."""
+        """测试接受新密文。"""
         nonce = bytes.fromhex("0" * 24)
         tag = bytes.fromhex("0" * 32)
         
@@ -87,15 +87,15 @@ class TestReplayCache:
         assert cache.reject_count == 0
     
     def test_check_and_record_replay_detected(self, cache):
-        """Test rejecting replay."""
+        """测试拒绝重放。"""
         nonce = bytes.fromhex("0" * 24)
         tag = bytes.fromhex("0" * 32)
         
-        # First time - accept
+        # 第一次 - 接受
         result1 = cache.check_and_record(nonce, tag)
         assert result1 is True
         
-        # Second time - reject (replay)
+        # 第二次 - 拒绝（重放）
         result2 = cache.check_and_record(nonce, tag)
         assert result2 is False
         
@@ -103,7 +103,7 @@ class TestReplayCache:
         assert cache.reject_count == 1
     
     def test_different_nonces_accepted(self, cache):
-        """Test different nonces are accepted."""
+        """测试不同 nonce 被接受。"""
         tag = bytes.fromhex("0" * 32)
         
         for i in range(10):
@@ -115,7 +115,7 @@ class TestReplayCache:
         assert cache.reject_count == 0
     
     def test_different_tags_accepted(self, cache):
-        """Test different tags with same nonce are accepted."""
+        """测试相同 nonce 不同 tag 被接受。"""
         nonce = bytes.fromhex("0" * 24)
         
         for i in range(10):
@@ -127,19 +127,19 @@ class TestReplayCache:
         assert cache.reject_count == 0
 
     def test_check_and_record_strict_raises(self, cache):
-        """Test strict mode raises exception on replay."""
+        """测试严格模式在重放时抛出异常。"""
         nonce = bytes.fromhex("0" * 24)
         tag = bytes.fromhex("0" * 32)
         
-        # First time - no exception
+        # 第一次 - 无异常
         cache.check_and_record_strict(nonce, tag)
         
-        # Second time - should raise
+        # 第二次 - 应该抛出异常
         with pytest.raises(ReplayDetectedError):
             cache.check_and_record_strict(nonce, tag)
     
     def test_persist_and_load(self, cache, temp_run_dir):
-        """Test cache persistence and loading."""
+        """测试缓存持久化和加载。"""
         nonce1 = bytes.fromhex("aa" * 12)
         tag1 = bytes.fromhex("bb" * 16)
         nonce2 = bytes.fromhex("cc" * 12)
@@ -148,27 +148,27 @@ class TestReplayCache:
         cache.check_and_record(nonce1, tag1, image_id="img_001")
         cache.check_and_record(nonce2, tag2, image_id="img_002")
         
-        # Persist
+        # 持久化
         cache_path = cache.persist()
         assert cache_path.exists()
         
-        # Load
+        # 加载
         loaded = ReplayCache.load_from_cache(cache_path, "test_key_001")
         assert loaded.accept_count == 2
         assert len(loaded.entries) == 2
         assert len(loaded.seen) == 2
         
-        # Verify loaded cache rejects replays
+        # 验证加载的缓存拒绝重放
         result = loaded.check_and_record(nonce1, tag1)
         assert result is False
     
     def test_get_stats(self, cache):
-        """Test statistics retrieval."""
+        """测试统计信息获取。"""
         nonce = bytes.fromhex("0" * 24)
         tag = bytes.fromhex("0" * 32)
         
         cache.check_and_record(nonce, tag)
-        cache.check_and_record(nonce, tag)  # Replay
+        cache.check_and_record(nonce, tag)  # 重放
         
         stats = cache.get_stats()
         
@@ -178,23 +178,23 @@ class TestReplayCache:
         assert stats['reject_rate'] == 1.0
     
     def test_reject_rate_100_percent(self, cache):
-        """Test reject rate is 100% when replays are attempted."""
+        """测试重放尝试时拒绝率为 100%。"""
         nonce = bytes.fromhex("0" * 24)
         tag = bytes.fromhex("0" * 32)
         
-        # Accept first
+        # 首次接受
         cache.check_and_record(nonce, tag)
         
-        # Multiple replay attempts
+        # 多次重放尝试
         for _ in range(10):
             cache.check_and_record(nonce, tag)
         
-        # All replays should be rejected
+        # 所有重放应被拒绝
         assert cache.reject_count == 10
         assert cache.get_reject_rate() == 1.0
     
     def test_clear(self, cache):
-        """Test cache clearing."""
+        """测试缓存清除。"""
         nonce = bytes.fromhex("0" * 24)
         tag = bytes.fromhex("0" * 32)
         
@@ -208,12 +208,12 @@ class TestReplayCache:
         assert len(cache.seen) == 0
         assert len(cache.entries) == 0
         
-        # After clear, same ciphertext should be accepted
+        # 清除后，相同密文应被接受
         result = cache.check_and_record(nonce, tag)
         assert result is True
     
     def test_metadata_logging(self, cache):
-        """Test metadata is logged correctly."""
+        """测试元数据正确记录。"""
         nonce = bytes.fromhex("0" * 24)
         tag = bytes.fromhex("0" * 32)
         
@@ -232,11 +232,11 @@ class TestReplayCache:
 
 
 class TestGenerateReplayResultsCsv:
-    """Tests for CSV generation."""
+    """CSV 生成测试。"""
     
     @pytest.fixture
     def temp_run_dir(self):
-        """Create temporary run directory."""
+        """创建临时运行目录。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             run_dir = Path(tmpdir) / "test_run"
             run_dir.mkdir(parents=True)
@@ -245,21 +245,21 @@ class TestGenerateReplayResultsCsv:
             yield run_dir
     
     def test_generate_csv(self, temp_run_dir):
-        """Test CSV generation."""
+        """测试 CSV 生成。"""
         cache = ReplayCache(run_dir=temp_run_dir, key_id="test_key")
         
-        # Add some data
+        # 添加一些数据
         nonce = bytes.fromhex("0" * 24)
         tag = bytes.fromhex("0" * 32)
         cache.check_and_record(nonce, tag)
-        cache.check_and_record(nonce, tag)  # Replay
+        cache.check_and_record(nonce, tag)  # 重放
         
         output_path = temp_run_dir / "tables" / "replay_results.csv"
         result_path = generate_replay_results_csv(cache, output_path)
         
         assert result_path.exists()
         
-        # Read and verify
+        # 读取并验证
         import csv
         with open(result_path, 'r') as f:
             reader = csv.DictReader(f)
@@ -272,15 +272,15 @@ class TestGenerateReplayResultsCsv:
 
 
 class TestReplayCacheProperty:
-    """Property-based tests for ReplayCache.
+    """ReplayCache 属性测试。
     
-    **Feature: top-journal-experiment-suite, Property: Replay reject_rate = 100%**
-    **Validates: Requirements §9.6.1, RQ3**
+    **功能: top-journal-experiment-suite, 属性: 重放 reject_rate = 100%**
+    **验证: 需求 §9.6.1, RQ3**
     """
     
     @pytest.fixture
     def temp_run_dir(self):
-        """Create temporary run directory."""
+        """创建临时运行目录。"""
         with tempfile.TemporaryDirectory() as tmpdir:
             run_dir = Path(tmpdir) / "test_run"
             run_dir.mkdir(parents=True)
@@ -289,56 +289,54 @@ class TestReplayCacheProperty:
     
     def test_property_all_replays_rejected(self, temp_run_dir):
         """
-        Property: For any sequence of ciphertexts, all replay attempts
-        must be rejected (reject_rate = 100%).
+        属性: 对于任意密文序列，所有重放尝试必须被拒绝（reject_rate = 100%）。
         
-        **Feature: top-journal-experiment-suite, Property: Replay reject_rate = 100%**
-        **Validates: Requirements §9.6.1, RQ3**
+        **功能: top-journal-experiment-suite, 属性: 重放 reject_rate = 100%**
+        **验证: 需求 §9.6.1, RQ3**
         """
         import random
         
         cache = ReplayCache(run_dir=temp_run_dir, key_id="test_key")
         
-        # Generate random unique ciphertexts
+        # 生成随机唯一密文
         unique_ciphertexts = []
         for i in range(50):
             nonce = bytes([random.randint(0, 255) for _ in range(12)])
             tag = bytes([random.randint(0, 255) for _ in range(16)])
             unique_ciphertexts.append((nonce, tag))
         
-        # First pass: all should be accepted
+        # 第一轮: 全部应被接受
         for nonce, tag in unique_ciphertexts:
             result = cache.check_and_record(nonce, tag)
-            assert result is True, "New ciphertext should be accepted"
+            assert result is True, "新密文应被接受"
         
-        # Second pass: all should be rejected (replays)
+        # 第二轮: 全部应被拒绝（重放）
         for nonce, tag in unique_ciphertexts:
             result = cache.check_and_record(nonce, tag)
-            assert result is False, "Replay should be rejected"
+            assert result is False, "重放应被拒绝"
         
-        # Verify reject rate
+        # 验证拒绝率
         assert cache.accept_count == 50
         assert cache.reject_count == 50
         assert cache.get_reject_rate() == 1.0
     
     def test_property_unique_ciphertexts_always_accepted(self, temp_run_dir):
         """
-        Property: For any set of unique (nonce, tag) pairs,
-        all should be accepted.
+        属性: 对于任意唯一 (nonce, tag) 对集合，全部应被接受。
         
-        **Feature: top-journal-experiment-suite, Property: Unique acceptance**
-        **Validates: Requirements §9.6.1**
+        **功能: top-journal-experiment-suite, 属性: 唯一接受**
+        **验证: 需求 §9.6.1**
         """
         import random
         
         cache = ReplayCache(run_dir=temp_run_dir, key_id="test_key")
         
-        # Generate unique ciphertexts
+        # 生成唯一密文
         seen_pairs = set()
         accepted = 0
         
         for _ in range(100):
-            # Generate unique pair
+            # 生成唯一对
             while True:
                 nonce = bytes([random.randint(0, 255) for _ in range(12)])
                 tag = bytes([random.randint(0, 255) for _ in range(16)])
@@ -351,6 +349,6 @@ class TestReplayCacheProperty:
             if result:
                 accepted += 1
         
-        # All unique ciphertexts should be accepted
+        # 所有唯一密文应被接受
         assert accepted == 100
         assert cache.reject_count == 0

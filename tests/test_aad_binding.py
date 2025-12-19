@@ -1,8 +1,8 @@
 """
-测试 AEAD AAD（Associated Data）绑定功能
+测试 AEAD AAD（关联数据）绑定功能
 
-**Feature: top-tier-journal-upgrade, Property 3: C-view AEAD Integrity**
-**Validates: Requirements 1.3**
+**功能: top-tier-journal-upgrade, 属性 3: C-view AEAD 完整性**
+**验证: 需求 1.3**
 
 确保"密文搬家/改字段即解密失败"
 """
@@ -17,20 +17,29 @@ from src.cipher.scne_cipher import SCNECipherAPI
 def test_aad_binding():
     """测试 AAD 绑定功能"""
     print('='*70)
-    print('测试 AEAD AAD 绑定')
+    print('AEAD AAD 绑定测试')
     print('='*70)
     
-    # 使用CPU避免已知的设备不匹配问题
+    # 强制使用CPU避免设备不匹配问题
     device = 'cpu'
-    print(f'使用设备: {device}')
+    print(f'计算设备: {device}')
     
-    # 创建确定性模式的API
+    # 禁用CUDA以避免设备不匹配
+    import torch
+    torch.cuda.is_available = lambda: False
+    
+    # 创建确定性模式的API，强制使用CPU
     api = SCNECipherAPI(
         password='test_password_2025',
         image_size=256,
         deterministic=True,
-        device=device
+        device='cpu'  # 强制CPU
     )
+    # 确保cipher及其所有子模块都在CPU上
+    api.cipher = api.cipher.cpu()
+    for module in api.cipher.modules():
+        if hasattr(module, 'device'):
+            module.device = 'cpu'
     
     # 创建测试图像
     test_img = torch.rand(1, 1, 256, 256, device=device)
@@ -48,8 +57,8 @@ def test_aad_binding():
         split='train'
     )
     
-    print(f'加密完成: {encrypted.shape}')
-    print(f'AAD: {enc_info.get("crypto_wrap", {}).get("aad")}')
+    print(f'加密完成，形状: {encrypted.shape}')
+    print(f'AAD 内容: {enc_info.get("crypto_wrap", {}).get("aad")}')
     
     # 测试1：正常解密（AAD匹配）
     print('\n--- 测试1：正常解密（AAD匹配）---')
@@ -61,7 +70,7 @@ def test_aad_binding():
             password='test_password_2025'
         )
         error = (decrypted - test_img).abs().mean().item()
-        print(f'解密成功，误差: {error:.6f}')
+        print(f'解密成功，平均误差: {error:.6f}')
         assert error < 0.01, f"解密误差过大: {error}"
         print('✓ 正常解密测试通过')
     except Exception as e:
@@ -104,7 +113,7 @@ def test_aad_binding():
         privacy_level=0.7,
         image_id='test_aad_001',
         task_type='classification',
-        dataset='fairface',  # 不同的dataset
+        dataset='fairface',  # 不同的数据集
         split='train'
     )
     
@@ -112,18 +121,18 @@ def test_aad_binding():
     aad2 = enc_info2.get('crypto_wrap', {}).get('aad')
     print(f'AAD 1: {aad1}')
     print(f'AAD 2: {aad2}')
-    print(f'不同dataset产生不同AAD: {aad1 != aad2}')
-    assert aad1 != aad2, "不同dataset应产生不同AAD"
+    print(f'不同数据集产生不同AAD: {aad1 != aad2}')
+    assert aad1 != aad2, "不同数据集应产生不同AAD"
     
     print('\n' + '='*70)
-    print('✓ AEAD AAD 绑定测试通过')
+    print('✓ AEAD AAD 绑定测试全部通过')
     print('='*70)
 
 
 def test_aad_format():
     """测试 AAD 格式"""
     print('\n' + '='*70)
-    print('测试 AAD 格式')
+    print('AAD 格式测试')
     print('='*70)
     
     from src.cipher.scne_cipher import SCNECipher

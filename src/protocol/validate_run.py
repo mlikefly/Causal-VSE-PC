@@ -1,15 +1,15 @@
 """
-Run Validation for Top-Journal Experiment Suite.
+顶级期刊实验套件运行验证模块。
 
-Implements comprehensive validation of experiment runs including:
-- Directory structure validation
-- Schema validation
-- Coverage checking
-- Red-line checks (R1-R10)
+实现实验运行的全面验证，包括:
+- 目录结构验证
+- 模式验证
+- 覆盖率检查
+- 红线检查 (R1-R10)
 
-Corresponds to design.md §10.0.3 and T-REDLINE.
+对应 design.md §10.0.3 和 T-REDLINE。
 
-**Validates: Property 1, Property 10**
+**验证: 属性 1, 属性 10**
 """
 
 import csv
@@ -26,7 +26,7 @@ from .results_schema import ResultsSchema
 
 @dataclass
 class RedLineCheck:
-    """Result of a single red-line check."""
+    """单个红线检查的结果。"""
     id: str
     description: str
     passed: bool
@@ -35,7 +35,7 @@ class RedLineCheck:
 
 @dataclass
 class ValidationResult:
-    """Complete validation result."""
+    """完整验证结果。"""
     valid: bool
     red_line_checks: List[RedLineCheck] = field(default_factory=list)
     schema_results: Dict[str, Any] = field(default_factory=dict)
@@ -48,13 +48,13 @@ class ValidationResult:
 
 class ValidateRun:
     """
-    Run results validator.
+    运行结果验证器。
     
-    Validates experiment run directories against protocol requirements.
-    Implements T-REDLINE checks (R1-R10).
+    根据协议要求验证实验运行目录。
+    实现 T-REDLINE 检查 (R1-R10)。
     """
     
-    COVERAGE_THRESHOLD = 0.98  # 98% coverage gate
+    COVERAGE_THRESHOLD = 0.98  # 98% 覆盖率门槛
     
     REQUIRED_DIRS = ['meta', 'tables', 'figures', 'logs', 'reports']
     
@@ -72,10 +72,10 @@ class ValidateRun:
     
     def __init__(self, run_dir: Path):
         """
-        Initialize validator.
+        初始化验证器。
         
-        Args:
-            run_dir: Path to experiment run directory
+        参数:
+            run_dir: 实验运行目录路径
         """
         self.run_dir = Path(run_dir)
         self.protocol_manager = ProtocolManager(run_dir)
@@ -83,13 +83,13 @@ class ValidateRun:
 
     def validate(self, config: Optional[Dict] = None) -> ValidationResult:
         """
-        Perform complete validation of run directory.
+        执行运行目录的完整验证。
         
-        Args:
-            config: Optional configuration for consistency check
+        参数:
+            config: 可选的一致性检查配置
             
-        Returns:
-            ValidationResult with all check results
+        返回:
+            包含所有检查结果的 ValidationResult
         """
         result = ValidationResult(valid=True)
         
@@ -130,10 +130,10 @@ class ValidateRun:
     
     def _check_directory_structure(self) -> Tuple[bool, List[str]]:
         """
-        Check required directory structure exists.
+        检查必需的目录结构是否存在。
         
-        Returns:
-            Tuple of (is_valid, list of error messages)
+        返回:
+            (是否有效, 错误消息列表) 元组
         """
         errors = []
         
@@ -145,14 +145,14 @@ class ValidateRun:
             if not dir_path.exists():
                 errors.append(f"Missing required directory: {dir_name}/")
         
-        # Check required meta files
+        # 检查必需的元数据文件
         meta_dir = self.run_dir / "meta"
         if meta_dir.exists():
             for filename in self.REQUIRED_META_FILES:
                 if not (meta_dir / filename).exists():
-                    errors.append(f"Missing required meta file: meta/{filename}")
+                    errors.append(f"缺少必需的元数据文件: meta/{filename}")
         
-        # Check required table files
+        # 检查必需的表格文件
         tables_dir = self.run_dir / "tables"
         if tables_dir.exists():
             for filename in self.REQUIRED_TABLE_FILES:
@@ -163,20 +163,20 @@ class ValidateRun:
     
     def _check_coverage(self) -> Dict[str, Any]:
         """
-        Check experiment coverage.
+        检查实验覆盖率。
         
-        Returns:
-            Dictionary with coverage percentage and missing combinations
+        返回:
+            包含覆盖率百分比和缺失组合的字典
         """
         attack_csv = self.run_dir / "tables" / "attack_metrics.csv"
         
         if not attack_csv.exists():
             return {'coverage': 0.0, 'missing': [], 'error': 'attack_metrics.csv not found'}
         
-        # Expected combinations
+        # 期望的组合
         expected = self._get_expected_combinations()
         
-        # Actual combinations from CSV
+        # CSV 中的实际组合
         actual = set()
         with open(attack_csv, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
@@ -211,8 +211,8 @@ class ValidateRun:
         }
     
     def _get_expected_combinations(self) -> Set[Tuple]:
-        """Get expected experiment combinations."""
-        # Read from config or use defaults
+        """获取预期的实验组合。"""
+        # 从配置读取或使用默认值
         datasets = ['CelebA-HQ']  # Default
         tasks = ['face_verification']  # Default
         attack_types = list(self.schema.ATTACK_TYPES)
@@ -232,10 +232,10 @@ class ValidateRun:
 
     def _run_red_line_checks(self, config: Optional[Dict] = None) -> List[RedLineCheck]:
         """
-        Run all T-REDLINE checks (R1-R10).
+        运行所有 T-REDLINE 检查 (R1-R10)。
         
-        Returns:
-            List of RedLineCheck results
+        返回:
+            RedLineCheck 结果列表
         """
         checks = []
         
@@ -272,7 +272,7 @@ class ValidateRun:
         return checks
     
     def _check_r1_version_consistency(self) -> RedLineCheck:
-        """R1: Version consistency check."""
+        """R1: 版本一致性检查。"""
         try:
             version_file = self.run_dir / "meta" / "protocol_version.txt"
             if not version_file.exists():
@@ -294,7 +294,7 @@ class ValidateRun:
             return RedLineCheck("R1", "Version consistency", False, str(e))
     
     def _check_r2_coverage(self) -> RedLineCheck:
-        """R2: Coverage >= 98% check."""
+        """R2: 覆盖率 >= 98% 检查。"""
         coverage_result = self._check_coverage()
         coverage = coverage_result.get('coverage', 0.0)
         
@@ -306,7 +306,7 @@ class ValidateRun:
                               f"Coverage: {coverage:.2%} < {self.COVERAGE_THRESHOLD:.2%}")
     
     def _check_r3_a2_exists(self) -> RedLineCheck:
-        """R3: A2 attack with attacker_strength=full exists."""
+        """R3: 存在 attacker_strength=full 的 A2 攻击。"""
         attack_csv = self.run_dir / "tables" / "attack_metrics.csv"
         
         if not attack_csv.exists():
@@ -330,7 +330,7 @@ class ValidateRun:
                               "No A2 attack with attacker_strength=full")
     
     def _check_r4_replay(self) -> RedLineCheck:
-        """R4: Replay reject_rate = 100%."""
+        """R4: 重放 reject_rate = 100%。"""
         replay_csv = self.run_dir / "tables" / "replay_results.csv"
         
         if not replay_csv.exists():
@@ -348,7 +348,7 @@ class ValidateRun:
         return RedLineCheck("R4", "Replay reject_rate = 100%", True, "100% reject rate")
     
     def _check_r5_tamper(self) -> RedLineCheck:
-        """R5: Tamper fail_rate >= 99%."""
+        """R5: 篡改 fail_rate >= 99%。"""
         security_csv = self.run_dir / "tables" / "security_metrics_cview.csv"
         
         if not security_csv.exists():
@@ -367,8 +367,8 @@ class ValidateRun:
         return RedLineCheck("R5", "Tamper fail_rate >= 99%", True, ">= 99% fail rate")
     
     def _check_r6_cview_guard(self) -> RedLineCheck:
-        """R6: C-view guard (no c_view in training data)."""
-        # This would check DataLoader audit logs
+        """R6: C-view 守卫（训练数据中无 c_view）。"""
+        # 检查 DataLoader 审计日志
         audit_log = self.run_dir / "logs" / "dataloader_audit.log"
         
         if not audit_log.exists():
@@ -383,7 +383,7 @@ class ValidateRun:
         return RedLineCheck("R6", "C-view guard", True, "No c_view in training")
     
     def _check_r7_figure_manifest(self) -> RedLineCheck:
-        """R7: Figure manifest SHA256 reproducible."""
+        """R7: 图表清单 SHA256 可复现。"""
         manifest_path = self.run_dir / "reports" / "figure_manifest.json"
         
         if not manifest_path.exists():
@@ -394,7 +394,7 @@ class ValidateRun:
             with open(manifest_path, 'r') as f:
                 manifest = json.load(f)
             
-            # Verify each figure's hash
+            # 验证每个图表的哈希
             figures_dir = self.run_dir / "figures"
             for entry in manifest.get('figures', []):
                 fig_path = figures_dir / entry['filename']
@@ -410,7 +410,7 @@ class ValidateRun:
             return RedLineCheck("R7", "Figure manifest reproducible", False, str(e))
     
     def _check_r8_nonce_unique(self) -> RedLineCheck:
-        """R8: Nonce uniqueness."""
+        """R8: Nonce 唯一性。"""
         nonce_log = self.run_dir / "meta" / "nonce_log.json"
         
         if not nonce_log.exists():
@@ -432,7 +432,7 @@ class ValidateRun:
             return RedLineCheck("R8", "Nonce uniqueness", False, str(e))
     
     def _check_r9_split_leakage(self) -> RedLineCheck:
-        """R9: Train/val/test zero ID overlap."""
+        """R9: 训练/验证/测试集零 ID 重叠。"""
         manifest_path = self.run_dir / "meta" / "dataset_manifest.json"
         
         if not manifest_path.exists():
@@ -462,7 +462,7 @@ class ValidateRun:
             return RedLineCheck("R9", "Split leakage check", False, str(e))
     
     def _check_r10_schema_complete(self) -> RedLineCheck:
-        """R10: All CSV fields complete and correct type."""
+        """R10: 所有 CSV 字段完整且类型正确。"""
         tables_dir = self.run_dir / "tables"
         
         if not tables_dir.exists():
@@ -483,13 +483,13 @@ class ValidateRun:
 
     def generate_onepage_report(self, result: ValidationResult) -> str:
         """
-        Generate reviewer-friendly one-page validation report.
+        生成审稿人友好的单页验证报告。
         
-        Args:
-            result: ValidationResult from validate()
+        参数:
+            result: validate() 返回的 ValidationResult
             
-        Returns:
-            Markdown formatted report
+        返回:
+            Markdown 格式的报告
         """
         status = "✅ PASSED" if result.valid else "❌ FAILED"
         
@@ -560,13 +560,13 @@ python -m src.protocol.validate_run {self.run_dir}
     
     def write_onepage_report(self, result: ValidationResult) -> Path:
         """
-        Write one-page report to reports/validate_run_onepage.md.
+        将单页报告写入 reports/validate_run_onepage.md。
         
-        Args:
-            result: ValidationResult from validate()
+        参数:
+            result: validate() 返回的 ValidationResult
             
-        Returns:
-            Path to written report
+        返回:
+            写入报告的路径
         """
         reports_dir = self.run_dir / "reports"
         reports_dir.mkdir(parents=True, exist_ok=True)
@@ -579,13 +579,13 @@ python -m src.protocol.validate_run {self.run_dir}
     
     def write_missing_matrix(self, missing: List[Dict]) -> Optional[Path]:
         """
-        Write missing combinations to missing_matrix.csv.
+        将缺失组合写入 missing_matrix.csv。
         
-        Args:
-            missing: List of missing combination dictionaries
+        参数:
+            missing: 缺失组合字典列表
             
-        Returns:
-            Path to written file, or None if no missing combinations
+        返回:
+            写入文件的路径，如果没有缺失组合则返回 None
         """
         if not missing:
             return None
@@ -605,7 +605,7 @@ python -m src.protocol.validate_run {self.run_dir}
 
 
 def main():
-    """CLI entry point for validation."""
+    """验证的 CLI 入口点。"""
     import sys
     
     if len(sys.argv) < 2:
@@ -616,16 +616,16 @@ def main():
     validator = ValidateRun(run_dir)
     result = validator.validate()
     
-    # Write report
+    # 写入报告
     report_path = validator.write_onepage_report(result)
-    print(f"Report written to: {report_path}")
+    print(f"报告已写入: {report_path}")
     
-    # Write missing matrix if needed
+    # 如果需要，写入缺失矩阵
     if result.missing_combinations:
         missing_path = validator.write_missing_matrix(result.missing_combinations)
-        print(f"Missing matrix written to: {missing_path}")
+        print(f"缺失矩阵已写入: {missing_path}")
     
-    # Exit with appropriate code
+    # 使用适当的退出码退出
     sys.exit(0 if result.valid else 1)
 
 

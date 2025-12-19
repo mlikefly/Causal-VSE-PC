@@ -1,10 +1,10 @@
 """
-Membership Inference Attack implementation.
+成员推断攻击实现。
 
-Uses Shadow Models method per Requirements R2.AC1.
-attack_success = AUC (per GC7)
+按需求 R2.AC1 使用影子模型方法。
+attack_success = AUC（按 GC7）
 
-**Validates: Requirements R2.AC1**
+**验证: 需求 R2.AC1**
 """
 
 from dataclasses import dataclass
@@ -24,7 +24,7 @@ from ..attack_framework import (
 
 @dataclass
 class MembershipInferenceMetrics:
-    """Membership inference attack metrics."""
+    """成员推断攻击指标。"""
     auc: float  # attack_success
     accuracy: float
     advantage: float  # |accuracy - 0.5| * 2
@@ -37,17 +37,17 @@ class MembershipInferenceMetrics:
 @AttackRegistry.register(AttackType.MEMBERSHIP_INFERENCE)
 class MembershipInferenceAttack(AttackBase):
     """
-    Membership Inference Attack using Shadow Models.
+    使用影子模型的成员推断攻击。
     
-    Determines whether a sample was in the training set.
-    Uses shadow models to train an attack classifier.
+    判断样本是否在训练集中。
+    使用影子模型训练攻击分类器。
     
-    attack_success = AUC (lower is better for privacy)
+    attack_success = AUC（越低隐私保护越好）
     
-    Per Requirements R2.AC1:
-    - Uses Shadow Models method
-    - Outputs Attack AUC and Advantage
-    - Shadow split must be strictly separated from evaluation samples
+    按需求 R2.AC1：
+    - 使用影子模型方法
+    - 输出攻击 AUC 和优势
+    - 影子分割必须与评估样本严格分离
     """
     
     attack_type = AttackType.MEMBERSHIP_INFERENCE
@@ -59,12 +59,12 @@ class MembershipInferenceAttack(AttackBase):
         num_shadow_models: int = 3,
     ):
         """
-        Initialize membership inference attack.
+        初始化成员推断攻击。
         
-        Args:
-            device: Compute device
-            target_model: Target model to attack
-            num_shadow_models: Number of shadow models to train
+        参数:
+            device: 计算设备
+            target_model: 要攻击的目标模型
+            num_shadow_models: 要训练的影子模型数量
         """
         super().__init__(device)
         self.target_model = target_model
@@ -74,14 +74,14 @@ class MembershipInferenceAttack(AttackBase):
     
     def fit(self, ctx: AttackFitContext, **kwargs) -> None:
         """
-        Train shadow models and attack classifier.
+        训练影子模型和攻击分类器。
         
-        Args:
-            ctx: Attack training context
-            shadow_train_data: Data for training shadow models
-            shadow_train_labels: Labels for shadow training data
+        参数:
+            ctx: 攻击训练上下文
+            shadow_train_data: 用于训练影子模型的数据
+            shadow_train_labels: 影子训练数据的标签
             
-        Note: Shadow split must be strictly separated from evaluation samples.
+        注意: 影子分割必须与评估样本严格分离。
         """
         self.validate_threat_level(ctx)
         self.fit_context = ctx
@@ -97,15 +97,15 @@ class MembershipInferenceAttack(AttackBase):
     
     def evaluate(self, ctx: AttackEvalContext, **kwargs) -> AttackResult:
         """
-        Evaluate membership inference attack.
+        评估成员推断攻击。
         
-        Args:
-            ctx: Evaluation context
-            member_samples: Samples that were in training set
-            non_member_samples: Samples not in training set
+        参数:
+            ctx: 评估上下文
+            member_samples: 在训练集中的样本
+            non_member_samples: 不在训练集中的样本
             
-        Returns:
-            AttackResult with AUC as attack_success
+        返回:
+            以 AUC 作为 attack_success 的 AttackResult
         """
         member_samples = kwargs.get('member_samples')
         non_member_samples = kwargs.get('non_member_samples')
@@ -138,9 +138,9 @@ class MembershipInferenceAttack(AttackBase):
         )
     
     def _train_shadow_models(self, data, labels) -> None:
-        """Train shadow models."""
-        # In practice, train multiple models on different subsets
-        # For now, store data for simple attack
+        """训练影子模型。"""
+        # 实际中，在不同子集上训练多个模型
+        # 目前，存储数据用于简单攻击
         if hasattr(data, 'numpy'):
             data = data.numpy()
         if hasattr(labels, 'numpy'):
@@ -150,9 +150,9 @@ class MembershipInferenceAttack(AttackBase):
         self.shadow_labels = labels
     
     def _train_attack_classifier(self) -> None:
-        """Train attack classifier on shadow model outputs."""
-        # Simple threshold-based classifier
-        # In practice, would train on confidence scores from shadow models
+        """在影子模型输出上训练攻击分类器。"""
+        # 简单的基于阈值的分类器
+        # 实际中，会在影子模型的置信度分数上训练
         pass
     
     def _compute_metrics(
@@ -160,35 +160,35 @@ class MembershipInferenceAttack(AttackBase):
         member_samples,
         non_member_samples
     ) -> MembershipInferenceMetrics:
-        """Compute membership inference metrics."""
+        """计算成员推断指标。"""
         if hasattr(member_samples, 'numpy'):
             member_samples = member_samples.numpy()
         if hasattr(non_member_samples, 'numpy'):
             non_member_samples = non_member_samples.numpy()
         
-        # Get membership scores
+        # 获取成员分数
         member_scores = self._get_membership_scores(member_samples)
         non_member_scores = self._get_membership_scores(non_member_samples)
         
-        # Combine for evaluation
+        # 合并用于评估
         all_scores = np.concatenate([member_scores, non_member_scores])
         all_labels = np.concatenate([
             np.ones(len(member_scores)),
             np.zeros(len(non_member_scores))
         ])
         
-        # Compute AUC
+        # 计算 AUC
         auc = self._compute_auc(all_scores, all_labels)
         
-        # Compute accuracy at optimal threshold
+        # 在最优阈值处计算准确率
         threshold = np.median(all_scores)
         predictions = (all_scores >= threshold).astype(int)
         accuracy = np.mean(predictions == all_labels)
         
-        # Compute advantage
+        # 计算优势
         advantage = abs(accuracy - 0.5) * 2
         
-        # Compute precision and recall
+        # 计算精确率和召回率
         tp = np.sum((predictions == 1) & (all_labels == 1))
         fp = np.sum((predictions == 1) & (all_labels == 0))
         fn = np.sum((predictions == 0) & (all_labels == 1))
@@ -207,9 +207,9 @@ class MembershipInferenceAttack(AttackBase):
         )
     
     def _get_membership_scores(self, samples: np.ndarray) -> np.ndarray:
-        """Get membership scores for samples."""
+        """获取样本的成员分数。"""
         if self.target_model is not None:
-            # Use model confidence as membership signal
+            # 使用模型置信度作为成员信号
             import torch
             with torch.no_grad():
                 samples_tensor = torch.from_numpy(samples).float()
@@ -218,7 +218,7 @@ class MembershipInferenceAttack(AttackBase):
                 
                 outputs = self.target_model(samples_tensor)
                 
-                # Use max confidence as membership score
+                # 使用最大置信度作为成员分数
                 if hasattr(outputs, 'softmax'):
                     probs = outputs.softmax(dim=1)
                 else:
@@ -227,13 +227,13 @@ class MembershipInferenceAttack(AttackBase):
                 scores = probs.max(dim=1).values.cpu().numpy()
             return scores
         
-        # Fallback: use loss-based signal (lower loss = more likely member)
-        # Simulate with random scores biased by sample statistics
+        # 回退：使用基于损失的信号（损失越低越可能是成员）
+        # 用带有样本统计偏差的随机分数模拟
         scores = np.random.rand(len(samples)) * 0.5 + 0.25
         return scores
     
     def _compute_auc(self, scores: np.ndarray, labels: np.ndarray) -> float:
-        """Compute AUC."""
+        """计算 AUC。"""
         pos_scores = scores[labels == 1]
         neg_scores = scores[labels == 0]
         

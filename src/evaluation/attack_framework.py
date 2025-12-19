@@ -1,11 +1,11 @@
 """
-Attack Framework for Top-Journal Experiment Suite.
+顶级期刊实验套件攻击框架。
 
-Implements the attack API and base classes per design.md §6.2.
-Supports 5 attack types with A0/A1/A2 threat levels.
+按 design.md §6.2 实现攻击 API 和基类。
+支持 5 种攻击类型和 A0/A1/A2 威胁级别。
 
-**Validates: Property 3 - 攻击成功率映射一致性**
-**Validates: Property 14 - A2 攻击强制存在**
+**验证: 属性 3 - 攻击成功率映射一致性**
+**验证: 属性 14 - A2 攻击强制存在**
 """
 
 from abc import ABC, abstractmethod
@@ -19,14 +19,14 @@ import numpy as np
 
 
 class ThreatLevel(Enum):
-    """Threat level enumeration per §5.1."""
-    A0 = "A0"  # Black-box: only observes Z-view output
-    A1 = "A1"  # Gray-box: knows algorithm and architecture
-    A2 = "A2"  # White-box Adaptive: knows mask, budget, can design adaptive loss
+    """威胁级别枚举（按 §5.1）。"""
+    A0 = "A0"  # 黑盒: 仅观察 Z-view 输出
+    A1 = "A1"  # 灰盒: 知道算法和架构
+    A2 = "A2"  # 白盒自适应: 知道掩码、预算，可设计自适应损失
 
 
 class AttackType(Enum):
-    """Attack type enumeration per §6.1."""
+    """攻击类型枚举（按 §6.1）。"""
     FACE_VERIFICATION = "face_verification"
     ATTRIBUTE_INFERENCE = "attribute_inference"
     RECONSTRUCTION = "reconstruction"
@@ -35,16 +35,16 @@ class AttackType(Enum):
 
 
 class AttackerStrength(Enum):
-    """Attacker strength for CI exception clause per §10.4."""
-    LITE = "lite"   # 5 epochs, 1 instantiation, subset data
-    FULL = "full"   # 100 epochs, full instantiation, full data
+    """攻击者强度（用于 CI 例外条款，按 §10.4）。"""
+    LITE = "lite"   # 5 轮，1 次实例化，子集数据
+    FULL = "full"   # 100 轮，完整实例化，完整数据
 
 
 # attack_success mapping table per GC7 (frozen)
 ATTACK_SUCCESS_MAPPING = {
     AttackType.FACE_VERIFICATION: {
         "metric": "TAR@FAR=1e-3",
-        "direction": "lower_is_better",  # Lower attack_success = better privacy
+        "direction": "lower_is_better",  # 较低的 attack_success = 更好的隐私
     },
     AttackType.ATTRIBUTE_INFERENCE: {
         "metric": "AUC",
@@ -68,9 +68,9 @@ ATTACK_SUCCESS_MAPPING = {
 @dataclass
 class AttackFitContext:
     """
-    Attack training context (frozen interface per §6.2).
+    攻击训练上下文（按 §6.2 冻结接口）。
     
-    Contains all information needed to train an attack model.
+    包含训练攻击模型所需的所有信息。
     """
     run_id: str
     dataset: str
@@ -82,25 +82,25 @@ class AttackFitContext:
     threat_level: ThreatLevel
     attacker_visible: Dict[str, Any] = field(default_factory=dict)
     
-    # Optional metadata
+    # 可选元数据
     attacker_strength: AttackerStrength = AttackerStrength.FULL
-    degrade_reason: Optional[str] = None  # Required if strength=lite
+    degrade_reason: Optional[str] = None  # 如果 strength=lite 则必需
     
     def __post_init__(self):
-        """Validate context."""
+        """验证上下文。"""
         if isinstance(self.threat_level, str):
             self.threat_level = ThreatLevel(self.threat_level)
         if isinstance(self.attacker_strength, str):
             self.attacker_strength = AttackerStrength(self.attacker_strength)
         
-        # Validate lite mode requires degrade_reason
+        # 验证 lite 模式需要 degrade_reason
         if self.attacker_strength == AttackerStrength.LITE and not self.degrade_reason:
             raise ValueError(
-                "attacker_strength=lite requires degrade_reason to be set"
+                "attacker_strength=lite 需要设置 degrade_reason"
             )
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for logging."""
+        """转换为字典以便记录日志。"""
         return {
             'run_id': self.run_id,
             'dataset': self.dataset,
@@ -119,9 +119,9 @@ class AttackFitContext:
 @dataclass
 class AttackEvalContext:
     """
-    Attack evaluation context.
+    攻击评估上下文。
     
-    Contains information needed to evaluate an attack.
+    包含评估攻击所需的信息。
     """
     run_id: str
     dataset: str
@@ -134,7 +134,7 @@ class AttackEvalContext:
     split: str = "test"  # train/val/test
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary."""
+        """转换为字典。"""
         return {
             'run_id': self.run_id,
             'dataset': self.dataset,
@@ -151,30 +151,30 @@ class AttackEvalContext:
 @dataclass
 class AttackResult:
     """
-    Attack evaluation result.
+    攻击评估结果。
     
-    Contains attack metrics and metadata.
+    包含攻击指标和元数据。
     """
     attack_type: AttackType
     threat_level: ThreatLevel
-    attack_success: float  # Unified metric per GC7
+    attack_success: float  # 按 GC7 的统一指标
     metric_name: str
     metric_value: float
     status: str = "success"  # success/failed
     
-    # Statistical fields
+    # 统计字段
     ci_low: Optional[float] = None
     ci_high: Optional[float] = None
     stat_method: str = "bootstrap"
     n_boot: int = 500
     
-    # Metadata
+    # 元数据
     attacker_strength: AttackerStrength = AttackerStrength.FULL
     degrade_reason: Optional[str] = None
     additional_metrics: Dict[str, float] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for CSV output."""
+        """转换为字典以便 CSV 输出。"""
         return {
             'attack_type': self.attack_type.value,
             'threat_level': self.threat_level.value,
@@ -194,19 +194,19 @@ class AttackResult:
 
 class AttackBase(ABC):
     """
-    Attack base class (frozen signature per §6.2).
+    攻击基类（按 §6.2 冻结签名）。
     
-    All attack implementations must inherit from this class.
+    所有攻击实现必须继承此类。
     """
     
     attack_type: AttackType = None
     
     def __init__(self, device: str = None):
         """
-        Initialize attack.
+        初始化攻击。
         
         Args:
-            device: Compute device (cuda/cpu)
+            device: 计算设备 (cuda/cpu)
         """
         self.device = device or 'cpu'
         self.is_fitted = False
@@ -215,49 +215,49 @@ class AttackBase(ABC):
     @abstractmethod
     def fit(self, ctx: AttackFitContext, **kwargs) -> None:
         """
-        Train attack model.
+        训练攻击模型。
         
         Args:
-            ctx: Attack training context
-            **kwargs: Additional training data
+            ctx: 攻击训练上下文
+            **kwargs: 额外训练数据
         """
         pass
     
     @abstractmethod
     def evaluate(self, ctx: AttackEvalContext, **kwargs) -> AttackResult:
         """
-        Evaluate attack success rate.
+        评估攻击成功率。
         
         Args:
-            ctx: Attack evaluation context
-            **kwargs: Evaluation data
+            ctx: 攻击评估上下文
+            **kwargs: 评估数据
             
         Returns:
-            AttackResult with attack_success and metrics
+            包含 attack_success 和指标的 AttackResult
         """
         pass
     
     def get_attack_success(self, metrics: Dict[str, float]) -> float:
         """
-        Compute unified attack_success per GC7 mapping table.
+        按 GC7 映射表计算统一的 attack_success。
         
         Args:
-            metrics: Raw attack metrics
+            metrics: 原始攻击指标
             
         Returns:
-            Unified attack_success value
+            统一的 attack_success 值
         """
         if self.attack_type is None:
-            raise NotImplementedError("attack_type must be set in subclass")
+            raise NotImplementedError("子类必须设置 attack_type")
         
         mapping = ATTACK_SUCCESS_MAPPING[self.attack_type]
         metric_name = mapping["metric"]
         
-        # Map raw metric to attack_success
+        # 将原始指标映射到 attack_success
         if metric_name in metrics:
             return metrics[metric_name]
         
-        # Fallback mappings
+        # 回退映射
         fallback_mappings = {
             "TAR@FAR=1e-3": ["tar_at_far_1e3", "tar", "verification_rate"],
             "AUC": ["auc", "roc_auc", "auroc"],
@@ -269,40 +269,40 @@ class AttackBase(ABC):
                 return metrics[fallback]
         
         raise ValueError(
-            f"Cannot compute attack_success for {self.attack_type}: "
-            f"metric '{metric_name}' not found in {list(metrics.keys())}"
+            f"无法计算 {self.attack_type} 的 attack_success: "
+            f"指标 '{metric_name}' 未在 {list(metrics.keys())} 中找到"
         )
     
     def validate_threat_level(self, ctx: AttackFitContext) -> None:
         """
-        Validate threat level requirements.
+        验证威胁级别要求。
         
         Args:
-            ctx: Attack context
+            ctx: 攻击上下文
             
         Raises:
-            ValueError: If threat level requirements not met
+            ValueError: 如果威胁级别要求未满足
         """
         if ctx.threat_level == ThreatLevel.A2:
-            # A2 requires full strength (no degrade allowed per GC10)
+            # A2 要求完整强度（按 GC10 不允许降级）
             if ctx.attacker_strength != AttackerStrength.FULL:
                 raise ValueError(
-                    "A2 attacks must use attacker_strength=full (GC10)"
+                    "A2 攻击必须使用 attacker_strength=full (GC10)"
                 )
 
 
 class AttackRegistry:
     """
-    Registry for attack implementations.
+    攻击实现注册表。
     
-    Manages attack instantiation and validation.
+    管理攻击实例化和验证。
     """
     
     _attacks: Dict[AttackType, type] = {}
     
     @classmethod
     def register(cls, attack_type: AttackType):
-        """Decorator to register an attack class."""
+        """注册攻击类的装饰器。"""
         def decorator(attack_cls: type):
             cls._attacks[attack_type] = attack_cls
             attack_cls.attack_type = attack_type
@@ -311,37 +311,37 @@ class AttackRegistry:
     
     @classmethod
     def get(cls, attack_type: AttackType) -> type:
-        """Get attack class by type."""
+        """按类型获取攻击类。"""
         if attack_type not in cls._attacks:
-            raise ValueError(f"Attack type {attack_type} not registered")
+            raise ValueError(f"攻击类型 {attack_type} 未注册")
         return cls._attacks[attack_type]
     
     @classmethod
     def create(cls, attack_type: AttackType, **kwargs) -> AttackBase:
-        """Create attack instance."""
+        """创建攻击实例。"""
         attack_cls = cls.get(attack_type)
         return attack_cls(**kwargs)
     
     @classmethod
     def list_attacks(cls) -> List[AttackType]:
-        """List registered attack types."""
+        """列出已注册的攻击类型。"""
         return list(cls._attacks.keys())
 
 
 def validate_a2_exists(attack_results: List[AttackResult]) -> bool:
     """
-    Validate that A2 attack results exist.
+    验证 A2 攻击结果是否存在。
     
-    Per Property 14, attack_metrics.csv must contain threat_level=A2.
+    按属性 14，attack_metrics.csv 必须包含 threat_level=A2。
     
     Args:
-        attack_results: List of attack results
+        attack_results: 攻击结果列表
         
     Returns:
-        True if A2 exists
+        如果 A2 存在则返回 True
         
     Raises:
-        ValueError: If A2 is missing (hard fail)
+        ValueError: 如果 A2 缺失（硬失败）
     """
     has_a2 = any(
         r.threat_level == ThreatLevel.A2 
@@ -350,8 +350,8 @@ def validate_a2_exists(attack_results: List[AttackResult]) -> bool:
     
     if not has_a2:
         raise ValueError(
-            "A2 attack results missing (Property 14 violation). "
-            "attack_metrics.csv must contain at least one threat_level=A2 record."
+            "A2 攻击结果缺失（属性 14 违规）。"
+            "attack_metrics.csv 必须包含至少一条 threat_level=A2 记录。"
         )
     
     return True
@@ -362,14 +362,14 @@ def validate_attack_coverage(
     required_types: List[AttackType] = None,
 ) -> Dict[str, Any]:
     """
-    Validate attack coverage.
+    验证攻击覆盖率。
     
     Args:
-        attack_results: List of attack results
-        required_types: Required attack types (default: all 5)
+        attack_results: 攻击结果列表
+        required_types: 必需的攻击类型（默认：全部 5 种）
         
     Returns:
-        Coverage report
+        覆盖率报告
     """
     if required_types is None:
         required_types = list(AttackType)

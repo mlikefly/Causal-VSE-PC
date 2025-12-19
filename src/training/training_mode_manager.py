@@ -22,7 +22,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
-# Try to import torch for DataLoader
+# 尝试导入 torch 用于 DataLoader
 try:
     import torch
     from torch.utils.data import DataLoader, Dataset
@@ -34,7 +34,7 @@ except ImportError:
 
 
 # =============================================================================
-# Enums and Constants
+# 枚举和常量
 # =============================================================================
 
 class TrainingMode(Enum):
@@ -673,19 +673,19 @@ def generate_utility_failure_analysis(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     lines = [
-        "# Utility Failure Analysis Report",
+        "# 效用失败分析报告",
         "",
-        f"**Generated**: {datetime.now().isoformat()}",
-        f"**Total Failures**: {len(failures)}",
+        f"**生成时间**: {datetime.now().isoformat()}",
+        f"**失败总数**: {len(failures)}",
         "",
         "---",
         "",
-        "## Summary",
+        "## 摘要",
         "",
-        "The following configurations failed to meet the utility threshold:",
+        "以下配置未能达到效用阈值：",
         "",
-        "| Dataset | Task | Mode | Privacy | Metric | Value | Rel.Perf | Threshold | Gap |",
-        "|---------|------|------|---------|--------|-------|----------|-----------|-----|",
+        "| 数据集 | 任务 | 模式 | 隐私 | 指标 | 值 | 相对性能 | 阈值 | 差距 |",
+        "|--------|------|------|------|------|-----|----------|------|------|",
     ]
     
     for f in failures:

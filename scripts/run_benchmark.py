@@ -256,14 +256,14 @@ class BenchmarkRunner:
 
 
 class LaTeXGenerator:
-    """LaTeX 表格生成器"""
+    """LaTeX 表格生成器。"""
     
     @staticmethod
     def generate_utility_table(results: Dict) -> str:
         """
-        生成效用指标 LaTeX 表格
+        生成效用指标 LaTeX 表格。
         
-        **Requirements 10.1**: 效用指标表格
+        **需求 10.1**: 效用指标表格
         """
         curve = results.get('privacy_utility_curve', {})
         levels = curve.get('privacy_levels', [])
@@ -299,9 +299,9 @@ class LaTeXGenerator:
     @staticmethod
     def generate_attack_table(results: Dict) -> str:
         """
-        生成攻击成功率 LaTeX 表格
+        生成攻击成功率 LaTeX 表格。
         
-        **Requirements 10.2**: 攻击成功率表格
+        **需求 10.2**: 攻击成功率表格
         """
         latex = "\\begin{table}[htbp]\n"
         latex += "\\centering\n"
@@ -363,9 +363,9 @@ class LaTeXGenerator:
     @staticmethod
     def is_valid_latex(latex_str: str) -> bool:
         """
-        检查 LaTeX 输出有效性
+        检查 LaTeX 输出有效性。
         
-        **Property 13: LaTeX Output Validity**
+        **属性 13: LaTeX 输出有效性**
         """
         # 检查基本结构
         checks = [
@@ -380,14 +380,14 @@ class LaTeXGenerator:
 
 
 class VisualizationGenerator:
-    """可视化图表生成器"""
+    """可视化图表生成器。"""
     
     @staticmethod
     def generate_privacy_utility_plot_data(curve: Dict) -> Dict:
         """
-        生成隐私-效用曲线绘图数据
+        生成隐私-效用曲线绘图数据。
         
-        **Requirements 10.3**: ATE/CATE 曲线图
+        **需求 10.3**: ATE/CATE 曲线图
         """
         return {
             'x': curve.get('privacy_levels', []),
@@ -404,9 +404,9 @@ class VisualizationGenerator:
         method_names: List[str]
     ) -> Dict:
         """
-        生成 Pareto 前沿图数据
+        生成 Pareto 前沿图数据。
         
-        **Requirements 10.4**: Pareto 前沿图
+        **需求 10.4**: Pareto 前沿图
         """
         return {
             'x': privacy_values,
@@ -420,9 +420,9 @@ class VisualizationGenerator:
     @staticmethod
     def generate_fairness_bar_data(fairness: Dict) -> Dict:
         """
-        生成公平性分组柱状图数据
+        生成公平性分组柱状图数据。
         
-        **Requirements 10.5**: 公平性分组柱状图
+        **需求 10.5**: 公平性分组柱状图
         """
         group_acc = fairness.get('group_accuracies', {})
         return {
@@ -441,9 +441,9 @@ class VisualizationGenerator:
         reconstructed: torch.Tensor = None
     ) -> Dict:
         """
-        生成并排对比图数据
+        生成并排对比图数据。
         
-        **Requirements 10.6**: 明文/Z-view/C-view/重建图对比
+        **需求 10.6**: 明文/Z-view/C-view/重建图对比
         """
         data = {
             'original': original.cpu().numpy() if isinstance(original, torch.Tensor) else original,

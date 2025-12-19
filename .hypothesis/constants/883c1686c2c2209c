@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\data\causal_budget_allocator.py
+# hypothesis_version: 6.148.7
+
+[1e-06, 0.01, 0.3, 0.7, 1.0, '   建议检查并调整隐私预算策略。', '1. 语义区域分析:', '2. 多任务隐私预算分配:', '3. 因果推理结论:', 'allocation_analysis', 'ate', 'avg_privacy_task', 'background_ratio', 'causal_effects', 'ci_lower', 'classification', 'consistency', 'cpu', 'dataset', 'detection', 'encrypted', 'explanation', 'max', 'min', 'original', 'overall_avg', 'privacy_stats', 'r', 'region_stats', 'sample_id', 'segmentation', 'sensitive', 'sensitive_ratio', 'suggestion', 'task_analyses', 'task_ratio', 'timestamp', 'utf-8', 'w']

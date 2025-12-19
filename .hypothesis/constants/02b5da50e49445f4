@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\vse_pc\verifiable.py
+# hypothesis_version: 6.148.7
+
+[b'default_verification_key_32bytes_123456', 0.1, 0.5, 1.0, 256, '__main__', 'commitment', 'cpu', 'cuda', 'h_encrypted', 'h_info', 'h_original', 'iterations', 'privacy_level', 'strength', 'utf-8', 'version', '✓ 测试完成', '测试可验证性证明器']

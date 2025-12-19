@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\attacks\attribute_inference.py
+# hypothesis_version: 6.148.7
+
+[1e-08, 0.5, 1.0, 'AUC', 'accuracy', 'attribute_name', 'cpu', 'failed', 'num_classes', 'numpy', 'success', 'test_images', 'test_labels', 'to', 'train_features', 'train_images', 'train_labels', 'unknown']

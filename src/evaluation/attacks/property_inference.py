@@ -1,10 +1,10 @@
 """
-Property Inference Attack implementation.
+属性推断攻击实现。
 
-Infers group-level properties (e.g., race/gender distribution).
-attack_success = AUC (per GC7)
+推断群体级属性（如种族/性别分布）。
+attack_success = AUC（按 GC7）
 
-**Validates: Requirements R2.AC2**
+**验证: 需求 R2.AC2**
 """
 
 from dataclasses import dataclass
@@ -24,27 +24,27 @@ from ..attack_framework import (
 
 @dataclass
 class PropertyInferenceMetrics:
-    """Property inference attack metrics."""
+    """属性推断攻击指标。"""
     auc: float  # attack_success
     accuracy: float
     property_name: str
     num_properties: int
-    distribution_error: float  # MAE of predicted vs true distribution
+    distribution_error: float  # 预测与真实分布的 MAE
 
 
 @AttackRegistry.register(AttackType.PROPERTY_INFERENCE)
 class PropertyInferenceAttack(AttackBase):
     """
-    Property Inference Attack.
+    属性推断攻击。
     
-    Infers group-level properties from a dataset of Z-views,
-    such as the distribution of race/gender in the training set.
+    从 Z-view 数据集推断群体级属性，
+    如训练集中的种族/性别分布。
     
-    attack_success = AUC (lower is better for privacy)
+    attack_success = AUC（越低隐私保护越好）
     
-    Per Requirements R2.AC2:
-    - Predicts group attributes (race/gender distribution)
-    - Outputs accuracy/AUC + CI
+    按需求 R2.AC2：
+    - 预测群体属性（种族/性别分布）
+    - 输出准确率/AUC + 置信区间
     """
     
     attack_type = AttackType.PROPERTY_INFERENCE
@@ -56,12 +56,12 @@ class PropertyInferenceAttack(AttackBase):
         property_name: str = "unknown",
     ):
         """
-        Initialize property inference attack.
+        初始化属性推断攻击。
         
-        Args:
-            device: Compute device
-            property_classifier: Classifier for property inference
-            property_name: Name of target property
+        参数:
+            device: 计算设备
+            property_classifier: 用于属性推断的分类器
+            property_name: 目标属性名称
         """
         super().__init__(device)
         self.property_classifier = property_classifier
@@ -70,12 +70,12 @@ class PropertyInferenceAttack(AttackBase):
     
     def fit(self, ctx: AttackFitContext, **kwargs) -> None:
         """
-        Train property inference model.
+        训练属性推断模型。
         
-        Args:
-            ctx: Attack training context
-            train_datasets: List of datasets with known properties
-            train_properties: Property labels for each dataset
+        参数:
+            ctx: 攻击训练上下文
+            train_datasets: 具有已知属性的数据集列表
+            train_properties: 每个数据集的属性标签
         """
         self.validate_threat_level(ctx)
         self.fit_context = ctx
@@ -90,15 +90,15 @@ class PropertyInferenceAttack(AttackBase):
     
     def evaluate(self, ctx: AttackEvalContext, **kwargs) -> AttackResult:
         """
-        Evaluate property inference attack.
+        评估属性推断攻击。
         
-        Args:
-            ctx: Evaluation context
-            test_dataset: Dataset to infer properties from
-            true_property: True property value/distribution
+        参数:
+            ctx: 评估上下文
+            test_dataset: 要推断属性的数据集
+            true_property: 真实属性值/分布
             
-        Returns:
-            AttackResult with AUC as attack_success
+        返回:
+            以 AUC 作为 attack_success 的 AttackResult
         """
         test_dataset = kwargs.get('test_dataset')
         true_property = kwargs.get('true_property')
@@ -130,8 +130,8 @@ class PropertyInferenceAttack(AttackBase):
         )
     
     def _train_property_classifier(self, datasets, properties) -> None:
-        """Train property classifier on dataset statistics."""
-        # Extract aggregate features from each dataset
+        """在数据集统计信息上训练属性分类器。"""
+        # 从每个数据集提取聚合特征
         self.train_features = []
         self.train_labels = []
         
@@ -144,24 +144,24 @@ class PropertyInferenceAttack(AttackBase):
         self.train_labels = np.array(self.train_labels)
     
     def _extract_dataset_features(self, dataset) -> np.ndarray:
-        """Extract aggregate features from a dataset."""
+        """从数据集提取聚合特征。"""
         if hasattr(dataset, 'numpy'):
             dataset = dataset.numpy()
         
-        # Compute statistical features
+        # 计算统计特征
         features = []
         
-        # Mean and std of pixel values
+        # 像素值的均值和标准差
         features.append(dataset.mean())
         features.append(dataset.std())
         
-        # Per-channel statistics
+        # 每通道统计
         if len(dataset.shape) > 3:
             for c in range(min(dataset.shape[1], 3)):
                 features.append(dataset[:, c].mean())
                 features.append(dataset[:, c].std())
         
-        # Histogram features
+        # 直方图特征
         hist, _ = np.histogram(dataset.flatten(), bins=10, density=True)
         features.extend(hist.tolist())
         
@@ -172,35 +172,35 @@ class PropertyInferenceAttack(AttackBase):
         dataset,
         true_property
     ) -> PropertyInferenceMetrics:
-        """Compute property inference metrics."""
+        """计算属性推断指标。"""
         if hasattr(dataset, 'numpy'):
             dataset = dataset.numpy()
         
-        # Extract features
+        # 提取特征
         features = self._extract_dataset_features(dataset)
         
-        # Predict property
+        # 预测属性
         if hasattr(self, 'train_features') and self.train_features is not None:
             predicted, scores = self._predict_property(features)
         else:
-            # Random prediction
+            # 随机预测
             predicted = np.random.rand()
             scores = np.array([0.5, 0.5])
         
-        # Compute metrics
+        # 计算指标
         if true_property is not None:
             if hasattr(true_property, 'numpy'):
                 true_property = true_property.numpy()
             
-            # For distribution properties
+            # 对于分布属性
             if isinstance(true_property, (list, np.ndarray)):
                 distribution_error = np.mean(np.abs(
                     np.array(predicted) - np.array(true_property)
                 ))
-                # AUC based on distribution prediction accuracy
+                # 基于分布预测准确率的 AUC
                 auc = 1.0 - distribution_error
             else:
-                # For categorical properties
+                # 对于分类属性
                 distribution_error = abs(predicted - true_property)
                 auc = 1.0 - distribution_error
             
@@ -219,22 +219,22 @@ class PropertyInferenceAttack(AttackBase):
         )
     
     def _predict_property(self, features: np.ndarray):
-        """Predict property using trained model."""
+        """使用训练好的模型预测属性。"""
         if self.train_features is None or len(self.train_features) == 0:
             return 0.5, np.array([0.5, 0.5])
         
-        # K-NN prediction
+        # K-NN 预测
         distances = np.linalg.norm(self.train_features - features, axis=1)
         k = min(3, len(distances))
         k_idx = np.argsort(distances)[:k]
         
-        # Weighted average of labels
+        # 标签的加权平均
         weights = 1.0 / (distances[k_idx] + 1e-8)
         weights /= weights.sum()
         
         predicted = np.average(self.train_labels[k_idx], weights=weights, axis=0)
         
-        # Scores (confidence)
+        # 分数（置信度）
         scores = np.array([1.0 - np.mean(distances[k_idx]), np.mean(distances[k_idx])])
         
         return predicted, scores

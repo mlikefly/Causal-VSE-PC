@@ -56,13 +56,15 @@ class StandardChaoticCipher(nn.Module):
         
         # 初始状态 X0: [B, 5]
         # 使用不同频率的三角函数生成 5 个独立初值
+        # 使用key的设备而不是self.device，确保设备一致性
+        target_device = key.device
         x = torch.cat([
             (torch.sin(k1 * 10.0 + k2 * 1.0).abs() + 0.1) % 0.9,
             (torch.sin(k1 * 20.0 + k2 * 2.0).abs() + 0.1) % 0.9,
             (torch.sin(k1 * 30.0 + k2 * 3.0).abs() + 0.1) % 0.9,
             (torch.sin(k1 * 40.0 + k2 * 5.0).abs() + 0.1) % 0.9,
             (torch.sin(k1 * 50.0 + k2 * 7.0).abs() + 0.1) % 0.9,
-        ], dim=1).to(self.device)
+        ], dim=1).to(target_device)
         
         # 控制参数（优化后的强混沌参数 - Sine-Logistic 混合）
         # mu: 0.99 ~ 1.0 (Sine Map 满映射区)
@@ -94,7 +96,7 @@ class StandardChaoticCipher(nn.Module):
             x = x_next
 
         # 生成序列
-        seq = torch.zeros(B, size, device=self.device)
+        seq = torch.zeros(B, size, device=target_device)
         
         for t in range(size):
             # 迭代一步（使用相同的强混沌方程）
@@ -122,10 +124,12 @@ class StandardChaoticCipher(nn.Module):
             
         return seq
 
-    def _arnold_map_indices(self, N: int, iterations: int) -> torch.Tensor:
+    def _arnold_map_indices(self, N: int, iterations: int, device: str = None) -> torch.Tensor:
         """计算 Arnold 置乱的源坐标到目标坐标的映射索引"""
         # 缓存机制可以在外部做，这里直接算
-        idx = torch.arange(N*N, device=self.device)
+        # 使用传入的device或默认device
+        target_device = device if device is not None else self.device
+        idx = torch.arange(N*N, device=target_device)
         curr_x = idx % N
         curr_y = idx // N
         
@@ -137,9 +141,11 @@ class StandardChaoticCipher(nn.Module):
         new_idx = curr_y * N + curr_x
         return new_idx
 
-    def _inverse_arnold_map_indices(self, N: int, iterations: int) -> torch.Tensor:
+    def _inverse_arnold_map_indices(self, N: int, iterations: int, device: str = None) -> torch.Tensor:
         """计算逆 Arnold 映射索引"""
-        idx = torch.arange(N*N, device=self.device)
+        # 使用传入的device或默认device
+        target_device = device if device is not None else self.device
+        idx = torch.arange(N*N, device=target_device)
         curr_x = idx % N
         curr_y = idx // N
         
@@ -176,9 +182,9 @@ class StandardChaoticCipher(nn.Module):
             
         p_str = params.get('strength', 0.5)
         if isinstance(p_str, torch.Tensor):
-            strength = p_str
+            strength = p_str.to(images.device)
         else:
-            strength = torch.tensor(p_str, device=self.device)
+            strength = torch.tensor(p_str, device=images.device)
         
         x = images.clone()
         
@@ -187,7 +193,7 @@ class StandardChaoticCipher(nn.Module):
         # 加密时：scrambled[j] = original[i]，即 scrambled[new_idx[i]] = original[i]
         # 使用scatter: scrambled.scatter_(dim, new_idx, original)
         if iterations > 0:
-            new_idx = self._arnold_map_indices(H, iterations)
+            new_idx = self._arnold_map_indices(H, iterations, device=images.device)
             x_flat = x.view(B, C, -1)
             x_scrambled = torch.zeros_like(x_flat)
             idx_exp = new_idx.view(1, 1, -1).expand(B, C, -1)
@@ -215,9 +221,9 @@ class StandardChaoticCipher(nn.Module):
             
         p_str = params.get('strength', 0.5)
         if isinstance(p_str, torch.Tensor):
-            strength = p_str
+            strength = p_str.to(encrypted.device)
         else:
-            strength = torch.tensor(p_str, device=self.device)
+            strength = torch.tensor(p_str, device=encrypted.device)
         
         x = encrypted.clone()
         
@@ -233,7 +239,7 @@ class StandardChaoticCipher(nn.Module):
         # 解密时用gather: original[i] = scrambled[fwd_idx[i]]
         # 关键：使用相同的正向映射索引fwd_idx，因为scatter和gather是对称操作
         if iterations > 0:
-            fwd_idx = self._arnold_map_indices(H, iterations)
+            fwd_idx = self._arnold_map_indices(H, iterations, device=encrypted.device)
             x_flat = x.view(B, C, -1)
             idx_exp = fwd_idx.view(1, 1, -1).expand(B, C, -1)
             x_restored = torch.gather(x_flat, 2, idx_exp)

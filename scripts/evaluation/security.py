@@ -19,7 +19,7 @@ from src.evaluation.security_metrics import SecurityMetrics
 
 
 def to_uint8(img: torch.Tensor) -> np.ndarray:
-    """img: [B,1,H,W] in [0,1] -> np.uint8 [H,W] (first sample)"""
+    """img: [B,1,H,W] 范围 [0,1] -> np.uint8 [H,W]（第一个样本）"""
     x = img[0, 0].detach().cpu().clamp(0, 1).mul(255).round().to(torch.uint8).numpy()
     return x
 
@@ -33,9 +33,9 @@ def eval_single_pair(original: torch.Tensor, encrypted: torch.Tensor):
 
 
 def key_sensitivity_test(api: SCNECipherAPI, img: torch.Tensor, privacy: float) -> dict:
-    """Approximate 1-bit key flip by two nearly identical passwords.
-    Use cipher.set_password to actually re-initialize the key system.
-    Keep salt stable to isolate password difference.
+    """通过两个几乎相同的密码近似 1 比特密钥翻转。
+    使用 cipher.set_password 实际重新初始化密钥系统。
+    保持 salt 稳定以隔离密码差异。
     """
     p1 = "evaluation_password_2025"
     p2 = "evaluation_password_2025."

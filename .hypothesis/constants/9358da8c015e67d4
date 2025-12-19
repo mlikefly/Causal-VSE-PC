@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\statistics_engine.py
+# hypothesis_version: 6.148.7
+
+[0.0, 0.05, 0.5, 0.95, 1.0, 1.5, 100, 500, 1000, 'BH-FDR', 'alpha', 'bca', 'bonferroni', 'bootstrap_percentile', 'ci_high', 'ci_low', 'coverage', 'dataset', 'error', 'family_id', 'family_ids', 'holm', 'inconsistent_keys', 'invalid_rows', 'key', 'metric_name', 'missing_fields', 'n_boot', 'nan', 'percentile', 'privacy_level', 'r', 'row_index', 'stat_method', 'task', 'total_keys', 'total_rows', 'unknown', 'utf-8', 'valid', 'valid_rows']

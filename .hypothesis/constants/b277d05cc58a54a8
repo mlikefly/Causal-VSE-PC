@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\baseline_comparator.py
+# hypothesis_version: 6.148.7
+
+[0.0, 1e-08, 0.1, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 3.99, 10.0, 40.0, 100.0, 100, '$\\checkmark$', '-', '=', 'Baseline 对标报告', 'InstaHide', 'No', 'P3', 'Yes', '\\begin{table}[htbp]\n', '\\bottomrule\n', '\\centering\n', '\\end{table}\n', '\\end{tabular}\n', '\\midrule\n', '\\toprule\n', 'arnold', 'attack_resistance', 'attribute', 'blur_sigma', 'coefficients', 'cpu', 'efficiency', 'efficiency_score', 'identity', 'instahide', 'is_pareto_optimal', 'iterations', 'k', 'logistic', 'method', 'method_name', 'ours', 'p3', 'privacy', 'privacy_score', 'reconstruction', 'utility', 'utility_score']

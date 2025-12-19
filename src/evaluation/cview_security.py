@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-C-view Security Evaluation Suite for Top-Journal Experiment Suite.
+C-view 安全评估套件
 
-Implements security goal verification and diagnostic evidence:
-- TamperTester: Tamper detection testing (ciphertext/tag/aad)
-- ReplayTester: Replay attack detection testing
-- NISTTestRunner: NIST SP800-22 randomness tests (7 subtests)
-- AvalancheEffectTester: Avalanche effect testing (key/nonce/plaintext)
+实现安全目标验证和诊断证据：
+- TamperTester: 篡改检测测试（密文/标签/AAD）
+- ReplayTester: 重放攻击检测测试
+- NISTTestRunner: NIST SP800-22 随机性测试（7 项子测试）
+- AvalancheEffectTester: 雪崩效应测试（密钥/nonce/明文）
 
-Corresponds to design.md §9.6 and tasks.md T5.
+对应 design.md §9.6 和 tasks.md T5。
 
-**Validates:**
-- Property 4: C-view 安全测试完整性
-- Property 5: NIST 比特流充足性
-- Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+**验证:**
+- 属性 4: C-view 安全测试完整性
+- 属性 5: NIST 比特流充足性
+- 需求: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
 """
 
 import csv
@@ -31,7 +31,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-# Try to import cryptography for AEAD operations
+# 尝试导入 cryptography 用于 AEAD 操作
 try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     HAS_CRYPTO = True
@@ -39,7 +39,7 @@ except ImportError:
     HAS_CRYPTO = False
     AESGCM = None
 
-# Import ReplayCache from core
+# 从 core 导入 ReplayCache
 try:
     from src.core.replay_cache import ReplayCache, ReplayDetectedError
 except ImportError:
@@ -48,32 +48,32 @@ except ImportError:
 
 
 # =============================================================================
-# Enums and Constants
+# 枚举和常量
 # =============================================================================
 
 class TamperType(Enum):
-    """Types of tamper attacks."""
+    """篡改攻击类型。"""
     CIPHERTEXT = "ciphertext"
     TAG = "tag"
     AAD = "aad"
 
 
 class FlipType(Enum):
-    """Types of bit flips for avalanche testing."""
+    """雪崩测试的比特翻转类型。"""
     KEY = "key"
     NONCE = "nonce"
     PLAINTEXT = "plaintext"
 
 
 class SecurityTestStatus(Enum):
-    """Status of security tests."""
+    """安全测试状态。"""
     PASS = "pass"
     FAIL = "fail"
     SKIP = "skip"
     ERROR = "error"
 
 
-# NIST test minimum bit requirements (from design.md §12.3)
+# NIST 测试最小比特要求（来自 design.md §12.3）
 NIST_MIN_BITS = {
     "frequency": 100,
     "block_frequency": 100,
@@ -84,7 +84,7 @@ NIST_MIN_BITS = {
     "approximate_entropy": 1000,
 }
 
-# Security thresholds (from design.md §9.6)
+# 安全阈值（来自 design.md §9.6）
 TAMPER_FAIL_RATE_THRESHOLD = 0.99  # ≥ 99%
 REPLAY_REJECT_RATE_THRESHOLD = 1.0  # = 100%
 NIST_P_VALUE_THRESHOLD = 0.01  # ≥ 0.01
@@ -97,7 +97,7 @@ AVALANCHE_FLIP_RATE_RANGE = (0.45, 0.55)  # [45%, 55%]
 
 @dataclass
 class TamperTestResult:
-    """Result of a single tamper test."""
+    """单个篡改测试的结果。"""
     tamper_type: str
     sample_id: str
     original_valid: bool
@@ -108,7 +108,7 @@ class TamperTestResult:
 
 @dataclass
 class TamperTestSummary:
-    """Summary of tamper tests for one type."""
+    """单一类型篡改测试的摘要。"""
     tamper_type: str
     total_tests: int
     detected_count: int
@@ -119,7 +119,7 @@ class TamperTestSummary:
 
 @dataclass
 class ReplayTestResult:
-    """Result of replay testing."""
+    """重放测试的结果。"""
     total_unique: int
     total_replays: int
     rejected_replays: int
@@ -129,7 +129,7 @@ class ReplayTestResult:
 
 @dataclass
 class NISTTestResult:
-    """Result of a single NIST test."""
+    """单个 NIST 测试的结果。"""
     test_name: str
     p_value: float
     passed: bool
@@ -141,7 +141,7 @@ class NISTTestResult:
 
 @dataclass
 class NISTTestSummary:
-    """Summary of all NIST tests."""
+    """所有 NIST 测试的摘要。"""
     total_tests: int
     passed_tests: int
     total_bits: int
@@ -151,7 +151,7 @@ class NISTTestSummary:
 
 @dataclass
 class AvalancheTestResult:
-    """Result of avalanche effect test."""
+    """雪崩效应测试的结果。"""
     flip_type: str
     flip_rate: float
     in_range: bool
@@ -162,7 +162,7 @@ class AvalancheTestResult:
 
 @dataclass
 class SecurityReport:
-    """Complete security evaluation report."""
+    """完整的安全评估报告。"""
     tamper_results: Dict[str, TamperTestSummary]
     replay_result: Optional[ReplayTestResult]
     nist_summary: Optional[NISTTestSummary]
@@ -171,7 +171,7 @@ class SecurityReport:
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     
     def to_dict(self) -> Dict:
-        """Convert to dictionary for serialization."""
+        """转换为字典以便序列化。"""
         return {
             "timestamp": self.timestamp,
             "overall_status": self.overall_status,
@@ -227,12 +227,12 @@ class SecurityReport:
 
 class TamperTester:
     """
-    Tamper detection tester for C-view AEAD ciphertexts.
+    C-view AEAD 密文的篡改检测测试器。
     
-    Tests 3 tamper types: ciphertext, tag, aad
-    Expected fail_rate ≥ 99%
+    测试 3 种篡改类型：密文、标签、AAD
+    期望 fail_rate ≥ 99%
     
-    **Validates: §9.6.1, Property 4**
+    **验证: §9.6.1, 属性 4**
     """
     
     TAMPER_TYPES = [TamperType.CIPHERTEXT, TamperType.TAG, TamperType.AAD]
@@ -245,12 +245,12 @@ class TamperTester:
         n_tests_per_type: int = 200,
     ):
         """
-        Initialize TamperTester.
+        初始化 TamperTester。
         
-        Args:
-            encrypt_fn: Function to encrypt data (plaintext, key, nonce, aad) -> (ciphertext, tag)
-            decrypt_fn: Function to decrypt data (ciphertext, tag, key, nonce, aad) -> plaintext or raises
-            n_tests_per_type: Number of tests per tamper type
+        参数:
+            encrypt_fn: 加密函数 (plaintext, key, nonce, aad) -> (ciphertext, tag)
+            decrypt_fn: 解密函数 (ciphertext, tag, key, nonce, aad) -> plaintext 或抛出异常
+            n_tests_per_type: 每种篡改类型的测试次数
         """
         self.encrypt_fn = encrypt_fn or self._default_encrypt
         self.decrypt_fn = decrypt_fn or self._default_decrypt
@@ -259,13 +259,13 @@ class TamperTester:
     def _default_encrypt(
         self, plaintext: bytes, key: bytes, nonce: bytes, aad: bytes
     ) -> Tuple[bytes, bytes]:
-        """Default encryption using AES-GCM."""
+        """使用 AES-GCM 的默认加密。"""
         if not HAS_CRYPTO:
-            raise RuntimeError("cryptography library not installed")
+            raise RuntimeError("cryptography 库未安装")
         aesgcm = AESGCM(key)
-        # AES-GCM returns ciphertext || tag
+        # AES-GCM 返回 ciphertext || tag
         ct_with_tag = aesgcm.encrypt(nonce, plaintext, aad)
-        # Split: last 16 bytes are tag
+        # 分割: 最后 16 字节是 tag
         ciphertext = ct_with_tag[:-16]
         tag = ct_with_tag[-16:]
         return ciphertext, tag
@@ -273,15 +273,15 @@ class TamperTester:
     def _default_decrypt(
         self, ciphertext: bytes, tag: bytes, key: bytes, nonce: bytes, aad: bytes
     ) -> bytes:
-        """Default decryption using AES-GCM."""
+        """使用 AES-GCM 的默认解密。"""
         if not HAS_CRYPTO:
-            raise RuntimeError("cryptography library not installed")
+            raise RuntimeError("cryptography 库未安装")
         aesgcm = AESGCM(key)
         ct_with_tag = ciphertext + tag
         return aesgcm.decrypt(nonce, ct_with_tag, aad)
 
     def _tamper_bytes(self, data: bytes, n_bits: int = 1) -> bytes:
-        """Tamper data by flipping random bits."""
+        """通过翻转随机比特来篡改数据。"""
         if len(data) == 0:
             return data
         data_array = bytearray(data)
@@ -301,31 +301,31 @@ class TamperTester:
         sample_id: str = "unknown",
     ) -> TamperTestResult:
         """
-        Test single tamper detection.
+        测试单个篡改检测。
         
-        Args:
-            tamper_type: Type of tamper to test
-            plaintext: Original plaintext
-            key: Encryption key
+        参数:
+            tamper_type: 要测试的篡改类型
+            plaintext: 原始明文
+            key: 加密密钥
             nonce: Nonce
-            aad: Additional authenticated data
-            sample_id: Sample identifier
+            aad: 附加认证数据
+            sample_id: 样本标识符
             
-        Returns:
+        返回:
             TamperTestResult
         """
         try:
-            # Encrypt
+            # 加密
             ciphertext, tag = self.encrypt_fn(plaintext, key, nonce, aad)
             
-            # Verify original decrypts correctly
+            # 验证原始数据能正确解密
             try:
                 self.decrypt_fn(ciphertext, tag, key, nonce, aad)
                 original_valid = True
             except Exception:
                 original_valid = False
             
-            # Apply tamper
+            # 应用篡改
             if tamper_type == TamperType.CIPHERTEXT:
                 tampered_ct = self._tamper_bytes(ciphertext)
                 tampered_tag = tag
@@ -339,16 +339,16 @@ class TamperTester:
                 tampered_tag = tag
                 tampered_aad = self._tamper_bytes(aad) if aad else b"tampered"
             else:
-                raise ValueError(f"Unknown tamper type: {tamper_type}")
+                raise ValueError(f"未知的篡改类型: {tamper_type}")
             
-            # Try to decrypt tampered data
+            # 尝试解密篡改后的数据
             try:
                 self.decrypt_fn(tampered_ct, tampered_tag, key, nonce, tampered_aad)
                 tampered_valid = True
             except Exception:
                 tampered_valid = False
             
-            # Tamper detected if decryption fails
+            # 如果解密失败则检测到篡改
             detected = not tampered_valid
             
             return TamperTestResult(
@@ -375,13 +375,13 @@ class TamperTester:
         samples: List[Dict[str, bytes]],
     ) -> TamperTestSummary:
         """
-        Test tamper detection for one type across multiple samples.
+        对多个样本测试一种篡改类型的检测。
         
-        Args:
-            tamper_type: Type of tamper to test
-            samples: List of dicts with keys: plaintext, key, nonce, aad, sample_id
+        参数:
+            tamper_type: 要测试的篡改类型
+            samples: 包含 plaintext, key, nonce, aad, sample_id 键的字典列表
             
-        Returns:
+        返回:
             TamperTestSummary
         """
         results = []
@@ -419,17 +419,17 @@ class TamperTester:
         key: Optional[bytes] = None,
     ) -> Dict[str, TamperTestSummary]:
         """
-        Test all tamper types.
+        测试所有篡改类型。
         
-        Args:
-            samples: Optional list of samples. If None, generates random samples.
-            key: Optional shared key for all samples.
+        参数:
+            samples: 可选的样本列表。如果为 None，则生成随机样本。
+            key: 可选的所有样本共享密钥。
             
-        Returns:
-            Dict mapping tamper type to TamperTestSummary
+        返回:
+            篡改类型到 TamperTestSummary 的字典映射
         """
         if samples is None:
-            # Generate random samples
+            # 生成随机样本
             key = key or secrets.token_bytes(32)
             samples = []
             for i in range(self.n_tests_per_type):
@@ -454,20 +454,20 @@ class TamperTester:
 
 class ReplayTester:
     """
-    Replay attack tester using ReplayCache.
+    使用 ReplayCache 的重放攻击测试器。
     
-    Tests that all replay attempts are rejected (reject_rate = 100%).
+    测试所有重放尝试是否被拒绝（reject_rate = 100%）。
     
-    **Validates: §9.6.1, Property 4**
+    **验证: §9.6.1, 属性 4**
     """
     
     def __init__(self, run_dir: Optional[Path] = None, key_id: str = "test_key"):
         """
-        Initialize ReplayTester.
+        初始化 ReplayTester。
         
-        Args:
-            run_dir: Run directory for ReplayCache
-            key_id: Key identifier
+        参数:
+            run_dir: ReplayCache 的运行目录
+            key_id: 密钥标识符
         """
         self.run_dir = Path(run_dir) if run_dir else Path(".")
         self.key_id = key_id
@@ -478,13 +478,13 @@ class ReplayTester:
         n_replays_per_unique: int = 2,
     ) -> ReplayTestResult:
         """
-        Test replay detection.
+        测试重放检测。
         
-        Args:
-            n_unique: Number of unique ciphertexts
-            n_replays_per_unique: Number of replay attempts per unique ciphertext
+        参数:
+            n_unique: 唯一密文数量
+            n_replays_per_unique: 每个唯一密文的重放尝试次数
             
-        Returns:
+        返回:
             ReplayTestResult
         """
         if ReplayCache is None:
@@ -499,7 +499,7 @@ class ReplayTester:
         # Create cache
         cache = ReplayCache(run_dir=self.run_dir, key_id=self.key_id)
         
-        # Generate unique ciphertexts
+        # 生成唯一密文
         unique_samples = []
         for i in range(n_unique):
             nonce = secrets.token_bytes(12)
@@ -552,7 +552,7 @@ class NISTTestRunner:
     - serial: 序列测试
     - approximate_entropy: 近似熵测试
     
-    **Validates: R3.AC1, R3.AC2, Property 5**
+    **验证: R3.AC1, R3.AC2, 属性 5**
     """
     
     REQUIRED_TESTS = [
@@ -564,7 +564,7 @@ class NISTTestRunner:
         """
         初始化 NIST 测试运行器。
         
-        Args:
+        参数:
             alpha: 显著性水平，默认 0.01
         """
         self.alpha = alpha
@@ -950,7 +950,7 @@ class AvalancheEffectTester:
     测试三类 flip：key/nonce/plaintext
     期望翻转率在 45%-55%
     
-    **Validates: R3.AC3, Property 4**
+    **验证: R3.AC3, 属性 4**
     """
     
     FLIP_TYPES = [FlipType.KEY, FlipType.NONCE, FlipType.PLAINTEXT]
@@ -963,7 +963,7 @@ class AvalancheEffectTester:
         """
         初始化雪崩效应测试器。
         
-        Args:
+        参数:
             encrypt_fn: 加密函数 (plaintext, key, nonce) -> ciphertext
             n_samples: 每种 flip 类型的测试样本数
         """
@@ -975,7 +975,7 @@ class AvalancheEffectTester:
     ) -> bytes:
         """默认加密函数（AES-GCM）。"""
         if not HAS_CRYPTO:
-            raise RuntimeError("cryptography library not installed")
+            raise RuntimeError("cryptography 库未安装")
         aesgcm = AESGCM(key)
         return aesgcm.encrypt(nonce, plaintext, None)
     
@@ -1018,13 +1018,13 @@ class AvalancheEffectTester:
         """
         测试单种 flip 类型的雪崩效应。
         
-        Args:
+        参数:
             flip_type: Flip 类型
             plaintext: 明文（可选，默认随机生成）
             key: 密钥（可选，默认随机生成）
             nonce: Nonce（可选，默认随机生成）
             
-        Returns:
+        返回:
             AvalancheTestResult
         """
         flip_rates = []
@@ -1069,7 +1069,7 @@ class AvalancheEffectTester:
                 in_range=False,
                 n_samples=0,
                 status="error",
-                details={"error": "No successful tests"},
+                details={"error": "没有成功的测试"},
             )
         
         avg_flip_rate = np.mean(flip_rates)
@@ -1099,8 +1099,8 @@ class AvalancheEffectTester:
         """
         测试所有 flip 类型。
         
-        Returns:
-            Dict mapping flip type to AvalancheTestResult
+        返回:
+            flip 类型到 AvalancheTestResult 的字典映射
         """
         results = {}
         for flip_type in self.FLIP_TYPES:
@@ -1120,7 +1120,7 @@ class CViewSecurityEvaluator:
     
     整合 TamperTester、ReplayTester、NISTTestRunner、AvalancheEffectTester。
     
-    **Validates: Property 4, Property 5**
+    **验证: 属性 4, 属性 5**
     """
     
     def __init__(
@@ -1132,7 +1132,7 @@ class CViewSecurityEvaluator:
         """
         初始化安全评估器。
         
-        Args:
+        参数:
             run_dir: 运行目录
             encrypt_fn: 加密函数
             decrypt_fn: 解密函数
@@ -1151,17 +1151,17 @@ class CViewSecurityEvaluator:
         """
         运行完整的安全评估。
         
-        Args:
+        参数:
             samples: 测试样本列表
             ciphertext_data: 用于 NIST 测试的密文数据
             
-        Returns:
+        返回:
             SecurityReport
         """
-        # Tamper 测试
+        # 篡改测试
         tamper_results = self.tamper_tester.test_all(samples)
         
-        # Replay 测试
+        # 重放测试
         replay_result = self.replay_tester.test_replay_detection()
         
         # NIST 测试
@@ -1171,13 +1171,13 @@ class CViewSecurityEvaluator:
             # 生成随机数据进行测试
             nist_summary = self.nist_runner.run_all_tests(secrets.token_bytes(2000))
         
-        # Avalanche 测试
+        # 雪崩测试
         avalanche_results = self.avalanche_tester.test_all()
         
         # 确定整体状态
         tamper_pass = all(r.status == "pass" for r in tamper_results.values())
         replay_pass = replay_result.status == "pass"
-        # NIST/Avalanche 失败不 hard fail，但需记录
+        # NIST/雪崩测试失败不会导致硬失败，但需记录
         
         if tamper_pass and replay_pass:
             overall_status = "pass"
@@ -1202,11 +1202,11 @@ class CViewSecurityEvaluator:
         """
         生成 security_metrics_cview.csv。
         
-        Args:
+        参数:
             report: SecurityReport
             output_path: 输出路径
             
-        Returns:
+        返回:
             CSV 文件路径
         """
         if output_path is None:
@@ -1216,7 +1216,7 @@ class CViewSecurityEvaluator:
         
         rows = []
         
-        # Tamper 结果
+        # 篡改结果
         for tamper_type, summary in report.tamper_results.items():
             rows.append({
                 "test_category": "tamper",
@@ -1228,7 +1228,7 @@ class CViewSecurityEvaluator:
                 "n_tests": summary.total_tests,
             })
         
-        # Replay 结果
+        # 重放结果
         if report.replay_result:
             rows.append({
                 "test_category": "replay",
@@ -1253,7 +1253,7 @@ class CViewSecurityEvaluator:
                     "n_tests": result.bits_used,
                 })
         
-        # Avalanche 结果
+        # 雪崩结果
         for flip_type, result in report.avalanche_results.items():
             rows.append({
                 "test_category": "avalanche",
@@ -1286,11 +1286,11 @@ class CViewSecurityEvaluator:
         """
         生成 security_report.md。
         
-        Args:
+        参数:
             report: SecurityReport
             output_path: 输出路径
             
-        Returns:
+        返回:
             Markdown 文件路径
         """
         if output_path is None:
@@ -1299,19 +1299,19 @@ class CViewSecurityEvaluator:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         lines = [
-            "# C-view Security Evaluation Report",
+            "# C-view 安全评估报告",
             "",
-            f"**Generated**: {report.timestamp}",
-            f"**Overall Status**: {report.overall_status.upper()}",
+            f"**生成时间**: {report.timestamp}",
+            f"**整体状态**: {report.overall_status.upper()}",
             "",
             "---",
             "",
-            "## 1. Primary Evidence: Security Goals",
+            "## 1. 主要证据：安全目标",
             "",
-            "### 1.1 Tamper Detection (Integrity)",
+            "### 1.1 篡改检测（完整性）",
             "",
-            "| Tamper Type | Total Tests | Detected | Fail Rate | Status |",
-            "|-------------|-------------|----------|-----------|--------|",
+            "| 篡改类型 | 总测试数 | 检测数 | 失败率 | 状态 |",
+            "|----------|----------|--------|--------|------|",
         ]
         
         for tamper_type, summary in report.tamper_results.items():
@@ -1323,41 +1323,41 @@ class CViewSecurityEvaluator:
         
         lines.extend([
             "",
-            f"**Threshold**: fail_rate ≥ {TAMPER_FAIL_RATE_THRESHOLD:.0%}",
+            f"**阈值**: fail_rate ≥ {TAMPER_FAIL_RATE_THRESHOLD:.0%}",
             "",
-            "### 1.2 Replay Detection (Anti-Replay)",
+            "### 1.2 重放检测（防重放）",
             "",
         ])
         
         if report.replay_result:
             status_icon = "✓" if report.replay_result.status == "pass" else "✗"
             lines.extend([
-                f"- **Unique Ciphertexts**: {report.replay_result.total_unique}",
-                f"- **Replay Attempts**: {report.replay_result.total_replays}",
-                f"- **Rejected**: {report.replay_result.rejected_replays}",
-                f"- **Reject Rate**: {report.replay_result.reject_rate:.2%}",
-                f"- **Status**: {status_icon} {report.replay_result.status}",
+                f"- **唯一密文数**: {report.replay_result.total_unique}",
+                f"- **重放尝试数**: {report.replay_result.total_replays}",
+                f"- **拒绝数**: {report.replay_result.rejected_replays}",
+                f"- **拒绝率**: {report.replay_result.reject_rate:.2%}",
+                f"- **状态**: {status_icon} {report.replay_result.status}",
                 "",
-                f"**Threshold**: reject_rate = {REPLAY_REJECT_RATE_THRESHOLD:.0%}",
+                f"**阈值**: reject_rate = {REPLAY_REJECT_RATE_THRESHOLD:.0%}",
             ])
         
         lines.extend([
             "",
             "---",
             "",
-            "## 2. Diagnostic Evidence: Implementation Quality",
+            "## 2. 诊断证据：实现质量",
             "",
-            "### 2.1 NIST SP800-22 Randomness Tests",
+            "### 2.1 NIST SP800-22 随机性测试",
             "",
         ])
         
         if report.nist_summary:
             lines.extend([
-                f"**Total Bits**: {report.nist_summary.total_bits}",
-                f"**Tests Passed**: {report.nist_summary.passed_tests}/{report.nist_summary.total_tests}",
+                f"**总比特数**: {report.nist_summary.total_bits}",
+                f"**通过测试数**: {report.nist_summary.passed_tests}/{report.nist_summary.total_tests}",
                 "",
-                "| Test Name | P-Value | Bits Used | Status |",
-                "|-----------|---------|-----------|--------|",
+                "| 测试名称 | P 值 | 使用比特数 | 状态 |",
+                "|----------|------|------------|------|",
             ])
             
             for result in report.nist_summary.results:
@@ -1370,36 +1370,36 @@ class CViewSecurityEvaluator:
             
             lines.extend([
                 "",
-                f"**Threshold**: p_value ≥ {NIST_P_VALUE_THRESHOLD}",
+                f"**阈值**: p_value ≥ {NIST_P_VALUE_THRESHOLD}",
                 "",
-                "> **Note**: NIST test failures do not cause hard fail, but require explanation.",
+                "> **注意**: NIST 测试失败不会导致硬失败，但需要解释说明。",
             ])
         
         lines.extend([
             "",
-            "### 2.2 Avalanche Effect Tests",
+            "### 2.2 雪崩效应测试",
             "",
-            "| Flip Type | Flip Rate | In Range | Samples | Status |",
-            "|-----------|-----------|----------|---------|--------|",
+            "| 翻转类型 | 翻转率 | 在范围内 | 样本数 | 状态 |",
+            "|----------|--------|----------|--------|------|",
         ])
         
         for flip_type, result in report.avalanche_results.items():
             status_icon = "✓" if result.in_range else "⚠"
             lines.append(
                 f"| {flip_type} | {result.flip_rate:.2%} | "
-                f"{'Yes' if result.in_range else 'No'} | {result.n_samples} | "
+                f"{'是' if result.in_range else '否'} | {result.n_samples} | "
                 f"{status_icon} {result.status} |"
             )
         
         lines.extend([
             "",
-            f"**Expected Range**: {AVALANCHE_FLIP_RATE_RANGE[0]:.0%} - {AVALANCHE_FLIP_RATE_RANGE[1]:.0%}",
+            f"**期望范围**: {AVALANCHE_FLIP_RATE_RANGE[0]:.0%} - {AVALANCHE_FLIP_RATE_RANGE[1]:.0%}",
             "",
-            "> **Note**: Avalanche test failures do not cause hard fail, but require explanation.",
+            "> **注意**: 雪崩测试失败不会导致硬失败，但需要解释说明。",
             "",
             "---",
             "",
-            "*Report generated by CViewSecurityEvaluator*",
+            "*报告由 CViewSecurityEvaluator 生成*",
         ])
         
         with open(output_path, 'w', encoding='utf-8') as f:

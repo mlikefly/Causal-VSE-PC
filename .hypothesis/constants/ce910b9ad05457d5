@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\core\chaos_systems.py
+# hypothesis_version: 6.148.7
+
+[0.0, 1e-09, 0.15, 0.5, 0.6, 0.8, 0.85, 1.0, 1.001, 1.01, 1.02, 1.2, 3.0, 3.89, 3.91, 3.93, 3.95, 3.97, 3.99, 3.999, 4.0, 4.5, 8.0, 10.0, 28.0, 35.0, 128, 4294967295, 'a', 'alpha', 'b', 'beta', 'big', 'c', 'entropy', 'eta', 'gamma', 'high', 'low', 'lyapunov', 'medium', 'mu', 'quality', 'r', 'rho', 'sigma']

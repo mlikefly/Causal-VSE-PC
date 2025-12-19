@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\vse_pc\interface.py
+# hypothesis_version: 6.148.7
+
+[0.5, 0.7, 1.0, 5.0, 10.0, 256, 100000, '__main__', 'classification', 'cpu', 'cuda', 'enc_info', 'encrypted', 'predictions', 'proof', 'test_password', 'verification', '✓ 测试完成', '测试VSE-PC统一接口']

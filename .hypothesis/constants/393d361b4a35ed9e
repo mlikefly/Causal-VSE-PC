@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\data\semantic_mask_generator.py
+# hypothesis_version: 6.148.7
+
+[0.0, 0.5, 0.6, 1.0, 1.1, 256, 2000, 'L', 'background', 'background_pixels', 'background_ratio', 'bbox', 'body', 'box', 'boy', 'category', 'celeba', 'celebahq', 'cloth', 'confidence', 'ear_r', 'eye', 'face', 'facial_area', 'girl', 'hair', 'hat', 'human body', 'human face', 'l_brow', 'l_ear', 'l_eye', 'l_lip', 'license plate', 'man', 'mouth', 'mtcnn', 'neck', 'neck_l', 'nose', 'opencv', 'person', 'points', 'polygons', 'r_brow', 'r_ear', 'r_eye', 'retinaface', 'score', 'segmentation', 'sensitive', 'sensitive_pixels', 'sensitive_ratio', 'skin', 'task', 'task_pixels', 'task_ratio', 'u_lip', 'unknown', 'woman', 'x1', 'x2', 'y1', 'y2']

@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\attacks\adaptive_attacker.py
+# hypothesis_version: 6.148.7
+
+[0.0, 0.0001, 0.001, 0.01, 0.3, 0.5, 0.7, 100, ' + ', 'A2', 'adaptive_strategy', 'algorithm_info', 'algorithm_knowledge', 'attack_loss', 'attack_success', 'attacker_strength', 'budget_allocator', 'budget_analysis', 'budget_distribution', 'contract', 'contrastive_learning', 'dataset', 'description', 'epochs', 'evolutionary_search', 'failed', 'family', 'full', 'gan_inversion', 'gradient_based', 'high_budget_regions', 'inference', 'linear_probe', 'low_budget_regions', 'lr', 'lr_search', 'mask_analysis', 'mask_generator', 'max_epochs', 'max_gpu_hours', 'mlp_classifier', 'optimization', 'preservation_regions', 'preservation_weights', 'preserves_semantics', 'privacy_level', 'reconstruction', 'region_budgets', 'region_names', 'semantic_regions', 'task', 'threat_level', 'unet_decoder', '|']

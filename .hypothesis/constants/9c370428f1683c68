@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\attacks\face_verification.py
+# hypothesis_version: 6.148.7
+
+[0.0, 1e-08, 0.001, 0.5, 100, 'TAR@FAR=1e-3', 'auc', 'cpu', 'eer', 'failed', 'gallery_embeddings', 'gallery_images', 'gallery_labels', 'inf', 'num_pairs', 'numpy', 'query_images', 'query_labels', 'success', 'to']

@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\dual_view_metrics.py
+# hypothesis_version: 6.148.7
+
+[0.0, 0.1, 0.114, 0.2, 0.299, 0.587, 7.5, 7.9, 28.0, 30.0, 36.0, 38.0, 99.0, 99.5, '\n【NIST 子集测试】', '\n【NPCR（像素变化率）】', '\n【UACI（平均强度变化）】', '\n【信息熵】', '\n【卡方均匀性检验】', '\n【相关性】', '=', 'C-view', 'Z-view', 'c_view', 'chi2', 'chi2_p_value', 'chi2_pass', 'chi_square', 'correlation', 'diagonal', 'entropy', 'entropy_encrypted', 'entropy_original', 'high8', 'horizontal', 'nan', 'nist_monobit', 'nist_monobit_p', 'nist_monobit_pass', 'nist_runs', 'nist_runs_p', 'nist_runs_pass', 'npcr', 'uaci', 'vertical', 'z_view']

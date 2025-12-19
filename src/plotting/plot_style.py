@@ -1,24 +1,31 @@
+# -*- coding: utf-8 -*-
+"""
+绘图样式配置模块。
+
+提供论文级绘图样式的统一配置。
+"""
+
 from __future__ import annotations
 
 import matplotlib
 
 
 def apply_paper_style() -> None:
-    """Apply a consistent paper-grade plotting style across the project.
+    """在整个项目中应用一致的论文级绘图样式。
 
-    - Headless backend (Agg)
-    - Seaborn-like clean theme with readable fonts
-    - Thicker lines, subtle grids, consistent DPI handled by matplotlibrc
+    - 无头后端 (Agg)
+    - 类似 Seaborn 的简洁主题，字体可读
+    - 较粗的线条、微妙的网格，DPI 由 matplotlibrc 处理
     """
     try:
-        # Always use non-interactive backend for scripts
+        # 脚本始终使用非交互式后端
         matplotlib.use('Agg', force=True)
     except Exception:
         pass
 
     try:
         import seaborn as sns
-        # Clean white theme; grid only on y for readability
+        # 简洁白色主题；仅在 y 轴显示网格以提高可读性
         sns.set_theme(
             context='paper',
             style='whitegrid',
@@ -33,7 +40,7 @@ def apply_paper_style() -> None:
             },
         )
     except Exception:
-        # Fallback: minimal rc tuning without seaborn
+        # 回退：不使用 seaborn 的最小 rc 调整
         from matplotlib import rcParams
         rcParams['axes.grid'] = True
         rcParams['grid.linestyle'] = '--'

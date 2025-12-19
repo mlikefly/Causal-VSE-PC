@@ -1,12 +1,11 @@
 """
-Results Schema for Top-Journal Experiment Suite.
+顶级期刊实验套件结果模式定义
 
-Defines and validates CSV schema for utility_metrics.csv, attack_metrics.csv,
-and security_metrics_cview.csv.
+定义并验证 utility_metrics.csv、attack_metrics.csv 和 security_metrics_cview.csv 的 CSV 模式。
 
-Corresponds to design.md §10.1.
+对应 design.md §10.1。
 
-**Validates: Property 2 - CSV Schema 合规性**
+**验证: 属性 2 - CSV Schema 合规性**
 """
 
 import csv
@@ -17,12 +16,12 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 
 class SchemaValidationError(Exception):
-    """Schema validation errors."""
+    """模式验证错误。"""
     pass
 
 
 class FieldType(Enum):
-    """Supported field types."""
+    """支持的字段类型。"""
     STRING = "str"
     FLOAT = "float"
     INT = "int"
@@ -31,7 +30,7 @@ class FieldType(Enum):
 
 @dataclass
 class FieldDefinition:
-    """Definition of a CSV field."""
+    """CSV 字段定义。"""
     name: str
     field_type: FieldType
     required: bool = True
@@ -41,10 +40,10 @@ class FieldDefinition:
     
     def validate(self, value: Any) -> Tuple[bool, Optional[str]]:
         """
-        Validate a field value.
+        验证字段值。
         
-        Returns:
-            Tuple of (is_valid, error_message)
+        返回:
+            (是否有效, 错误消息) 元组
         """
         # Check required
         if value is None or (isinstance(value, str) and value.strip() == ''):
@@ -82,15 +81,15 @@ class FieldDefinition:
 @dataclass
 class ResultsSchema:
     """
-    Results Schema definition (frozen per §10.1).
+    结果模式定义（按 §10.1 冻结）。
     
-    Defines required fields for:
+    定义以下文件的必需字段:
     - utility_metrics.csv
     - attack_metrics.csv
     - security_metrics_cview.csv
     """
     
-    # Frozen enums
+    # 冻结的枚举值
     PRIVACY_LEVELS: Set[str] = field(default_factory=lambda: {'0.0', '0.3', '0.5', '0.7', '1.0'})
     THREAT_LEVELS: Set[str] = field(default_factory=lambda: {'A0', 'A1', 'A2'})
     TRAINING_MODES: Set[str] = field(default_factory=lambda: {'P2P', 'P2Z', 'Z2Z', 'Mix2Z'})
@@ -101,17 +100,17 @@ class ResultsSchema:
     ATTACKER_STRENGTHS: Set[str] = field(default_factory=lambda: {'lite', 'full'})
     STATUS_VALUES: Set[str] = field(default_factory=lambda: {'success', 'failed', 'skipped'})
     
-    # Schema version (must match ProtocolManager)
+    # 模式版本（必须与 ProtocolManager 匹配）
     SCHEMA_VERSION: str = "2.1.1"
     
     def __post_init__(self):
-        """Initialize field definitions."""
+        """初始化字段定义。"""
         self._init_utility_fields()
         self._init_attack_fields()
         self._init_security_fields()
     
     def _init_utility_fields(self):
-        """Initialize utility_metrics.csv field definitions."""
+        """初始化 utility_metrics.csv 字段定义。"""
         self.UTILITY_FIELDS: List[FieldDefinition] = [
             FieldDefinition("dataset", FieldType.STRING, required=True),
             FieldDefinition("task", FieldType.STRING, required=True),
@@ -134,7 +133,7 @@ class ResultsSchema:
         ]
     
     def _init_attack_fields(self):
-        """Initialize attack_metrics.csv field definitions."""
+        """初始化 attack_metrics.csv 字段定义。"""
         self.ATTACK_FIELDS: List[FieldDefinition] = [
             FieldDefinition("dataset", FieldType.STRING, required=True),
             FieldDefinition("task", FieldType.STRING, required=True),
@@ -156,7 +155,7 @@ class ResultsSchema:
             FieldDefinition("ci_high", FieldType.FLOAT, required=True),
             FieldDefinition("attacker_strength", FieldType.STRING, required=True,
                           allowed_values=self.ATTACKER_STRENGTHS),
-            FieldDefinition("degrade_reason", FieldType.STRING, required=False),  # Required if lite
+            FieldDefinition("degrade_reason", FieldType.STRING, required=False),  # 如果是 lite 则必需
             FieldDefinition("status", FieldType.STRING, required=True,
                           allowed_values=self.STATUS_VALUES),
             FieldDefinition("stat_method", FieldType.STRING, required=True),
@@ -166,7 +165,7 @@ class ResultsSchema:
         ]
     
     def _init_security_fields(self):
-        """Initialize security_metrics_cview.csv field definitions."""
+        """初始化 security_metrics_cview.csv 字段定义。"""
         self.SECURITY_FIELDS: List[FieldDefinition] = [
             FieldDefinition("test_type", FieldType.STRING, required=True),
             FieldDefinition("test_name", FieldType.STRING, required=True),
@@ -180,21 +179,21 @@ class ResultsSchema:
 
     def validate_csv(self, csv_path: Path, schema_type: str) -> Dict[str, Any]:
         """
-        Validate a CSV file against its schema.
+        根据模式验证 CSV 文件。
         
-        Args:
-            csv_path: Path to CSV file
-            schema_type: One of 'utility', 'attack', 'security'
+        参数:
+            csv_path: CSV 文件路径
+            schema_type: 'utility'、'attack' 或 'security' 之一
             
-        Returns:
-            Validation result dictionary with:
-            - valid: bool
-            - errors: List of error messages
-            - warnings: List of warning messages
-            - row_count: Number of rows validated
+        返回:
+            验证结果字典，包含:
+            - valid: 布尔值
+            - errors: 错误消息列表
+            - warnings: 警告消息列表
+            - row_count: 验证的行数
             
-        Raises:
-            SchemaValidationError: If schema_type is invalid
+        异常:
+            SchemaValidationError: 如果 schema_type 无效
         """
         schema_map = {
             'utility': self.UTILITY_FIELDS,
@@ -224,29 +223,29 @@ class ResultsSchema:
         with open(csv_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             
-            # Check header fields
+            # 检查表头字段
             if reader.fieldnames is None:
                 result['valid'] = False
-                result['errors'].append("CSV has no header")
+                result['errors'].append("CSV 没有表头")
                 return result
             
             csv_fields = set(reader.fieldnames)
             
-            # Check for missing required fields
+            # 检查缺失的必需字段
             missing_fields = field_names - csv_fields
             required_missing = [f for f in missing_fields 
                               if field_map.get(f, FieldDefinition(f, FieldType.STRING, False)).required]
             if required_missing:
                 result['valid'] = False
-                result['errors'].append(f"Missing required fields: {required_missing}")
+                result['errors'].append(f"缺少必需字段: {required_missing}")
             
-            # Check for extra fields (warning only)
+            # 检查额外字段（仅警告）
             extra_fields = csv_fields - field_names
             if extra_fields:
-                result['warnings'].append(f"Extra fields (ignored): {extra_fields}")
+                result['warnings'].append(f"额外字段（已忽略）: {extra_fields}")
             
-            # Validate each row
-            for row_idx, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
+            # 验证每一行
+            for row_idx, row in enumerate(reader, start=2):  # 从 2 开始（表头是第 1 行）
                 result['row_count'] += 1
                 
                 for field_def in fields:
@@ -272,7 +271,7 @@ class ResultsSchema:
         return result
     
     def get_required_fields(self, schema_type: str) -> List[str]:
-        """Get list of required field names for a schema type."""
+        """获取指定模式类型的必需字段名列表。"""
         schema_map = {
             'utility': self.UTILITY_FIELDS,
             'attack': self.ATTACK_FIELDS,
@@ -282,7 +281,7 @@ class ResultsSchema:
         return [f.name for f in fields if f.required]
     
     def get_all_fields(self, schema_type: str) -> List[str]:
-        """Get list of all field names for a schema type."""
+        """获取指定模式类型的所有字段名列表。"""
         schema_map = {
             'utility': self.UTILITY_FIELDS,
             'attack': self.ATTACK_FIELDS,
@@ -293,13 +292,13 @@ class ResultsSchema:
     
     def validate_all_csvs(self, tables_dir: Path) -> Dict[str, Dict[str, Any]]:
         """
-        Validate all CSV files in a tables directory.
+        验证 tables 目录中的所有 CSV 文件。
         
-        Args:
-            tables_dir: Path to tables/ directory
+        参数:
+            tables_dir: tables/ 目录路径
             
-        Returns:
-            Dictionary mapping filename to validation result
+        返回:
+            文件名到验证结果的字典映射
         """
         results = {}
         

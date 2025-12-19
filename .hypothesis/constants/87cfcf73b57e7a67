@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\core\frequency_cipher.py
+# hypothesis_version: 6.148.7
+
+[b'_HH', b'_HL', b'_LH', b'_LL', b'key', 0.0, 1e-10, 1e-08, 1e-06, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.2, 2.0, 65535.0, 65535, 11400714819323198485, 18446744073709551615, 'HH_pert', 'HL_pert', 'LH_pert', 'LL_pert', 'affine_min', 'affine_min_list', 'affine_scale', 'affine_scale_list', 'alpha_high', 'alpha_low', 'big', 'bilinear', 'cpu', 'dwt', 'fallback', 'haar', 'high_freq_strength', 'high_gain', 'ij', 'low_freq_strength', 'low_gain', 'mag_scale', 'nearest', 'none', 'privacy_level', 'radial_gains', 'radial_gains_used', 'region_nonce', 'seed', 'semantic_preserving', 'symmetric']

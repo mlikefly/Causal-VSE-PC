@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\data\manifest_builder.py
+# hypothesis_version: 6.148.7
+
+[2000, '\n=== Manifest 统计 ===', '*.jpg', '*.png', '.jpeg', '.jpg', '.png', '/', 'CelebA', 'CelebA-HQ', 'CelebAMask-HQ', 'ManifestRecord', 'OpenImages', 'Unknown', 'age', 'attribute_names', 'attributes', 'bboxes', 'categories', 'celeba', 'celebahq', 'dataset', 'fairface', 'file', 'gender', 'group', 'has_celebamask', 'has_pii', 'ignore', 'image_list.txt', 'image_path', 'labels', 'list_attr_celeba.txt', 'meta', 'metadata', 'openimages', 'original_filename', 'r', 'race', 'sample_id', 'semantic_mask_path', 'sensitive_mask_path', 'service_test', 'source_id', 'split', 'task_mask_path', 'test', 'train', 'utf-8', 'val', 'validation', 'w', '⚠️ 未找到 FairFace 标签文件']

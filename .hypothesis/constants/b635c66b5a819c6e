@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\cipher\dual_view_engine.py
+# hypothesis_version: 6.148.7
+
+[0.0, 0.3, 0.5, 0.7, 1.0, 256, 100000, 'aad', 'audit', 'c_view', 'c_view_shape', 'chaos_encryptor', 'chaos_info', 'classification', 'cpu', 'crypto_wrap', 'cuda', 'dataset', 'deterministic', 'device', 'enc_info', 'f32', 'freq_info', 'hash', 'image_id', 'kdf_salt', 'privacy_level', 'privacy_map_hash', 'q16', 'semantic_preserving', 'split', 'task_type', 'use_fft', 'use_frequency', 'version', 'z_info', 'z_view', 'z_view_hash', 'z_view_shape']

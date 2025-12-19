@@ -1,9 +1,9 @@
 """
-Attribute Inference Attack implementation.
+属性推断攻击实现。
 
-attack_success = AUC (per GC7)
+attack_success = AUC（按 GC7）
 
-**Validates: Requirements R2.AC4**
+**验证: 需求 R2.AC4**
 """
 
 from dataclasses import dataclass
@@ -23,7 +23,7 @@ from ..attack_framework import (
 
 @dataclass
 class AttributeInferenceMetrics:
-    """Attribute inference attack metrics."""
+    """属性推断攻击指标。"""
     auc: float  # attack_success
     accuracy: float
     attribute_name: str
@@ -34,24 +34,24 @@ class AttributeInferenceMetrics:
 @AttackRegistry.register(AttackType.ATTRIBUTE_INFERENCE)
 class AttributeInferenceAttack(AttackBase):
     """
-    Attribute Inference Attack.
+    属性推断攻击。
     
-    Evaluates whether an attacker can infer sensitive attributes
-    (e.g., race, gender, age) from Z-view.
+    评估攻击者是否能从 Z-view 推断敏感属性
+    （如种族、性别、年龄）。
     
-    attack_success = AUC (lower is better for privacy)
+    attack_success = AUC（越低隐私保护越好）
     """
     
     attack_type = AttackType.ATTRIBUTE_INFERENCE
     
     def __init__(self, device: str = None, classifier=None, attribute_name: str = "unknown"):
         """
-        Initialize attribute inference attack.
+        初始化属性推断攻击。
         
-        Args:
-            device: Compute device
-            classifier: Attribute classifier model
-            attribute_name: Name of target attribute
+        参数:
+            device: 计算设备
+            classifier: 属性分类器模型
+            attribute_name: 目标属性名称
         """
         super().__init__(device)
         self.classifier = classifier
@@ -60,12 +60,12 @@ class AttributeInferenceAttack(AttackBase):
     
     def fit(self, ctx: AttackFitContext, **kwargs) -> None:
         """
-        Train the attribute classifier.
+        训练属性分类器。
         
-        Args:
-            ctx: Attack training context
-            train_images: Training images (Z-view)
-            train_labels: Attribute labels
+        参数:
+            ctx: 攻击训练上下文
+            train_images: 训练图像（Z-view）
+            train_labels: 属性标签
         """
         self.validate_threat_level(ctx)
         self.fit_context = ctx
@@ -80,15 +80,15 @@ class AttributeInferenceAttack(AttackBase):
     
     def evaluate(self, ctx: AttackEvalContext, **kwargs) -> AttackResult:
         """
-        Evaluate attribute inference attack.
+        评估属性推断攻击。
         
-        Args:
-            ctx: Evaluation context
-            test_images: Test images (Z-view)
-            test_labels: True attribute labels
+        参数:
+            ctx: 评估上下文
+            test_images: 测试图像（Z-view）
+            test_labels: 真实属性标签
             
-        Returns:
-            AttackResult with AUC as attack_success
+        返回:
+            以 AUC 作为 attack_success 的 AttackResult
         """
         test_images = kwargs.get('test_images')
         test_labels = kwargs.get('test_labels')
@@ -120,19 +120,19 @@ class AttributeInferenceAttack(AttackBase):
         )
     
     def _train_classifier(self, images, labels) -> None:
-        """Train a simple classifier."""
-        # Extract features
+        """训练简单分类器。"""
+        # 提取特征
         features = self._extract_features(images)
         
         if hasattr(labels, 'numpy'):
             labels = labels.numpy()
         
-        # Store for k-NN classification
+        # 存储用于 k-NN 分类
         self.train_features = features
         self.train_labels = labels
     
     def _extract_features(self, images) -> np.ndarray:
-        """Extract features from images."""
+        """从图像中提取特征。"""
         if self.classifier is not None:
             import torch
             with torch.no_grad():
@@ -143,31 +143,31 @@ class AttributeInferenceAttack(AttackBase):
                     features = features.cpu().numpy()
             return features
         
-        # Fallback: flatten images
+        # 回退：展平图像
         if hasattr(images, 'numpy'):
             images = images.numpy()
         return images.reshape(len(images), -1)
     
     def _compute_metrics(self, images, labels) -> AttributeInferenceMetrics:
-        """Compute attribute inference metrics."""
+        """计算属性推断指标。"""
         features = self._extract_features(images)
         
         if hasattr(labels, 'numpy'):
             labels = labels.numpy()
         
-        # Predict using k-NN or classifier
+        # 使用 k-NN 或分类器预测
         if hasattr(self, 'train_features') and self.train_features is not None:
             predictions, scores = self._knn_predict(features)
         else:
-            # Random predictions
+            # 随机预测
             num_classes = len(np.unique(labels))
             predictions = np.random.randint(0, num_classes, len(labels))
             scores = np.random.rand(len(labels), num_classes)
         
-        # Compute accuracy
+        # 计算准确率
         accuracy = np.mean(predictions == labels)
         
-        # Compute AUC (one-vs-rest for multi-class)
+        # 计算 AUC（多分类使用 one-vs-rest）
         auc = self._compute_multiclass_auc(scores, labels)
         
         return AttributeInferenceMetrics(
@@ -179,25 +179,25 @@ class AttributeInferenceAttack(AttackBase):
         )
     
     def _knn_predict(self, features: np.ndarray, k: int = 5):
-        """K-NN prediction."""
+        """K-NN 预测。"""
         predictions = []
         scores = []
         
         num_classes = len(np.unique(self.train_labels))
         
         for feat in features:
-            # Compute distances
+            # 计算距离
             dists = np.linalg.norm(self.train_features - feat, axis=1)
             
-            # Get k nearest neighbors
+            # 获取 k 个最近邻
             k_idx = np.argsort(dists)[:k]
             k_labels = self.train_labels[k_idx]
             
-            # Vote
+            # 投票
             pred = np.bincount(k_labels.astype(int), minlength=num_classes).argmax()
             predictions.append(pred)
             
-            # Scores (inverse distance weighted)
+            # 分数（逆距离加权）
             score = np.zeros(num_classes)
             for idx, label in zip(k_idx, k_labels):
                 score[int(label)] += 1.0 / (dists[idx] + 1e-8)
@@ -207,7 +207,7 @@ class AttributeInferenceAttack(AttackBase):
         return np.array(predictions), np.array(scores)
     
     def _compute_multiclass_auc(self, scores: np.ndarray, labels: np.ndarray) -> float:
-        """Compute macro-averaged AUC for multi-class."""
+        """计算多分类的宏平均 AUC。"""
         num_classes = scores.shape[1] if len(scores.shape) > 1 else len(np.unique(labels))
         
         aucs = []
@@ -224,7 +224,7 @@ class AttributeInferenceAttack(AttackBase):
         return float(np.mean(aucs))
     
     def _compute_binary_auc(self, scores: np.ndarray, labels: np.ndarray) -> float:
-        """Compute binary AUC."""
+        """计算二分类 AUC。"""
         pos_scores = scores[labels == 1]
         neg_scores = scores[labels == 0]
         

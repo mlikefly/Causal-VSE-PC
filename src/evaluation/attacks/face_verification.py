@@ -1,9 +1,9 @@
 """
-Face Verification Attack implementation.
+人脸验证攻击实现。
 
-attack_success = TAR@FAR=1e-3 (per GC7)
+attack_success = TAR@FAR=1e-3 (按 GC7)
 
-**Validates: Requirements R2.AC3**
+**验证: 需求 R2.AC3**
 """
 
 from dataclasses import dataclass
@@ -23,10 +23,10 @@ from ..attack_framework import (
 
 @dataclass
 class FaceVerificationMetrics:
-    """Face verification attack metrics."""
+    """人脸验证攻击指标。"""
     tar_at_far_1e3: float  # TAR@FAR=1e-3 (attack_success)
     auc: float
-    eer: float  # Equal Error Rate
+    eer: float  # 等错误率
     num_pairs: int
     num_positive_pairs: int
     num_negative_pairs: int
@@ -35,23 +35,23 @@ class FaceVerificationMetrics:
 @AttackRegistry.register(AttackType.FACE_VERIFICATION)
 class FaceVerificationAttack(AttackBase):
     """
-    Face Verification Attack.
+    人脸验证攻击。
     
-    Evaluates whether an attacker can verify identity from Z-view.
-    Uses embedding similarity to compute TAR@FAR.
+    评估攻击者是否能从 Z-view 验证身份。
+    使用嵌入相似度计算 TAR@FAR。
     
-    attack_success = TAR@FAR=1e-3 (lower is better for privacy)
+    attack_success = TAR@FAR=1e-3（越低隐私保护越好）
     """
     
     attack_type = AttackType.FACE_VERIFICATION
     
     def __init__(self, device: str = None, encoder=None):
         """
-        Initialize face verification attack.
+        初始化人脸验证攻击。
         
-        Args:
-            device: Compute device
-            encoder: Face encoder model (e.g., ArcFace, FaceNet)
+        参数:
+            device: 计算设备
+            encoder: 人脸编码器模型（如 ArcFace、FaceNet）
         """
         super().__init__(device)
         self.encoder = encoder
@@ -59,16 +59,16 @@ class FaceVerificationAttack(AttackBase):
     
     def fit(self, ctx: AttackFitContext, **kwargs) -> None:
         """
-        Train/calibrate the attack.
+        训练/校准攻击。
         
-        For face verification, this mainly involves:
-        1. Computing embeddings for gallery images
-        2. Finding optimal threshold (if needed)
+        对于人脸验证，主要包括:
+        1. 计算图库图像的嵌入
+        2. 找到最优阈值（如需要）
         
-        Args:
-            ctx: Attack training context
-            gallery_images: Gallery images for verification
-            gallery_labels: Identity labels for gallery
+        参数:
+            ctx: 攻击训练上下文
+            gallery_images: 用于验证的图库图像
+            gallery_labels: 图库的身份标签
         """
         self.validate_threat_level(ctx)
         self.fit_context = ctx
@@ -77,7 +77,7 @@ class FaceVerificationAttack(AttackBase):
         gallery_labels = kwargs.get('gallery_labels')
         
         if gallery_images is not None and self.encoder is not None:
-            # Compute gallery embeddings
+            # 计算图库嵌入
             self.gallery_embeddings = self._compute_embeddings(gallery_images)
             self.gallery_labels = gallery_labels
         
@@ -85,15 +85,15 @@ class FaceVerificationAttack(AttackBase):
     
     def evaluate(self, ctx: AttackEvalContext, **kwargs) -> AttackResult:
         """
-        Evaluate face verification attack.
+        评估人脸验证攻击。
         
-        Args:
-            ctx: Evaluation context
-            query_images: Query images (Z-view)
-            query_labels: Identity labels for queries
+        参数:
+            ctx: 评估上下文
+            query_images: 查询图像（Z-view）
+            query_labels: 查询的身份标签
             
-        Returns:
-            AttackResult with TAR@FAR=1e-3 as attack_success
+        返回:
+            以 TAR@FAR=1e-3 作为 attack_success 的 AttackResult
         """
         query_images = kwargs.get('query_images')
         query_labels = kwargs.get('query_labels')
@@ -108,7 +108,7 @@ class FaceVerificationAttack(AttackBase):
                 status="failed",
             )
         
-        # Compute metrics
+        # 计算指标
         metrics = self._compute_verification_metrics(
             query_images, query_labels, **kwargs
         )
@@ -128,14 +128,14 @@ class FaceVerificationAttack(AttackBase):
         )
     
     def _compute_embeddings(self, images) -> np.ndarray:
-        """Compute face embeddings."""
+        """计算人脸嵌入。"""
         if self.encoder is None:
-            # Fallback: use flattened pixels
+            # 回退：使用展平的像素
             if hasattr(images, 'numpy'):
                 images = images.numpy()
             return images.reshape(len(images), -1)
         
-        # Use encoder
+        # 使用编码器
         import torch
         with torch.no_grad():
             if hasattr(images, 'to'):
@@ -151,11 +151,11 @@ class FaceVerificationAttack(AttackBase):
         query_labels,
         **kwargs
     ) -> FaceVerificationMetrics:
-        """Compute face verification metrics."""
-        # Compute query embeddings
+        """计算人脸验证指标。"""
+        # 计算查询嵌入
         query_embeddings = self._compute_embeddings(query_images)
         
-        # Get gallery (use query as gallery if not provided)
+        # 获取图库（如果未提供则使用查询作为图库）
         gallery_embeddings = kwargs.get('gallery_embeddings', query_embeddings)
         gallery_labels = kwargs.get('gallery_labels', query_labels)
         
@@ -164,16 +164,16 @@ class FaceVerificationAttack(AttackBase):
         if hasattr(query_labels, 'numpy'):
             query_labels = query_labels.numpy()
         
-        # Compute similarity scores and labels
+        # 计算相似度分数和标签
         scores = []
         labels = []
         
         for i in range(len(query_embeddings)):
             for j in range(len(gallery_embeddings)):
                 if i == j and gallery_embeddings is query_embeddings:
-                    continue  # Skip self-comparison
+                    continue  # 跳过自比较
                 
-                # Cosine similarity
+                # 余弦相似度
                 sim = np.dot(query_embeddings[i], gallery_embeddings[j])
                 sim /= (np.linalg.norm(query_embeddings[i]) * 
                        np.linalg.norm(gallery_embeddings[j]) + 1e-8)
@@ -184,13 +184,13 @@ class FaceVerificationAttack(AttackBase):
         scores = np.array(scores)
         labels = np.array(labels)
         
-        # Compute TAR@FAR=1e-3
+        # 计算 TAR@FAR=1e-3
         tar_at_far = self._compute_tar_at_far(scores, labels, far_target=1e-3)
         
-        # Compute AUC
+        # 计算 AUC
         auc = self._compute_auc(scores, labels)
         
-        # Compute EER
+        # 计算 EER
         eer = self._compute_eer(scores, labels)
         
         return FaceVerificationMetrics(
@@ -208,14 +208,14 @@ class FaceVerificationAttack(AttackBase):
         labels: np.ndarray,
         far_target: float = 1e-3
     ) -> float:
-        """Compute TAR at specified FAR."""
+        """计算指定 FAR 下的 TAR。"""
         pos_scores = scores[labels == 1]
         neg_scores = scores[labels == 0]
         
         if len(pos_scores) == 0 or len(neg_scores) == 0:
             return 0.0
         
-        # Find threshold for target FAR
+        # 找到目标 FAR 的阈值
         thresholds = np.sort(neg_scores)[::-1]
         
         for thresh in thresholds:
@@ -227,14 +227,14 @@ class FaceVerificationAttack(AttackBase):
         return 0.0
     
     def _compute_auc(self, scores: np.ndarray, labels: np.ndarray) -> float:
-        """Compute AUC using trapezoidal rule."""
+        """使用梯形法则计算 AUC。"""
         pos_scores = scores[labels == 1]
         neg_scores = scores[labels == 0]
         
         if len(pos_scores) == 0 or len(neg_scores) == 0:
             return 0.5
         
-        # Simple AUC computation
+        # 简单 AUC 计算
         correct = 0
         for ps in pos_scores:
             for ns in neg_scores:
@@ -246,7 +246,7 @@ class FaceVerificationAttack(AttackBase):
         return correct / (len(pos_scores) * len(neg_scores))
     
     def _compute_eer(self, scores: np.ndarray, labels: np.ndarray) -> float:
-        """Compute Equal Error Rate."""
+        """计算等错误率。"""
         pos_scores = scores[labels == 1]
         neg_scores = scores[labels == 0]
         

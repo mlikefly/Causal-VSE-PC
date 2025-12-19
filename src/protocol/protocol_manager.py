@@ -1,10 +1,10 @@
 """
-Protocol Manager for Top-Journal Experiment Suite.
+协议管理器
 
-Implements protocol version management, snapshot generation, and consistency validation.
-Corresponds to design.md §8.4 and §12.1.
+实现协议版本管理、快照生成和一致性验证。
+对应 design.md §8.4 和 §12.1。
 
-**Validates: Property 13 - 协议版本一致性**
+**验证: 属性 13 - 协议版本一致性**
 """
 
 import hashlib
@@ -17,42 +17,42 @@ from typing import Any, Dict, Optional
 
 
 class ProtocolError(Exception):
-    """Protocol-related errors."""
+    """协议相关错误"""
     pass
 
 
 class ProtocolVersionMismatchError(ProtocolError):
-    """Raised when protocol_version != schema_version."""
+    """当 protocol_version != schema_version 时抛出"""
     pass
 
 
 @dataclass
 class ProtocolManager:
     """
-    Protocol version manager.
+    协议版本管理器
     
-    Manages protocol versioning, snapshot generation, and consistency validation.
-    Version numbers follow semantic versioning and must match schema_version.
+    管理协议版本控制、快照生成和一致性验证。
+    版本号遵循语义化版本控制，必须与 schema_version 匹配。
     
-    Attributes:
-        run_dir: Path to the experiment run directory
+    属性:
+        run_dir: 实验运行目录的路径
         
-    Version bump rules (frozen per §8.4):
-        - Major (X.0.0): Schema field additions/deletions
-        - Minor (0.X.0): Protocol logic changes
-        - Patch (0.0.X): Bug fixes/documentation clarifications
+    版本升级规则（按 §8.4 冻结）:
+        - 主版本 (X.0.0): Schema 字段添加/删除
+        - 次版本 (0.X.0): 协议逻辑变更
+        - 补丁版本 (0.0.X): Bug 修复/文档澄清
     """
     
     run_dir: Path
     meta_dir: Path = field(init=False)
     reports_dir: Path = field(init=False)
     
-    # Frozen version numbers - must match design.md v2.1.1 (class variables)
+    # 冻结的版本号 - 必须与 design.md v2.1.1 匹配（类变量）
     PROTOCOL_VERSION: str = field(default="2.1.1", init=False)
     SCHEMA_VERSION: str = field(default="2.1.1", init=False)
     
     def __post_init__(self):
-        """Initialize directory paths."""
+        """初始化目录路径"""
         if isinstance(self.run_dir, str):
             self.run_dir = Path(self.run_dir)
         self.meta_dir = self.run_dir / "meta"
@@ -60,10 +60,10 @@ class ProtocolManager:
     
     def write_protocol_version(self) -> Path:
         """
-        Write protocol version to meta/protocol_version.txt.
+        将协议版本写入 meta/protocol_version.txt
         
         Returns:
-            Path to the written file
+            写入文件的路径
         """
         self.meta_dir.mkdir(parents=True, exist_ok=True)
         version_file = self.meta_dir / "protocol_version.txt"
@@ -72,20 +72,20 @@ class ProtocolManager:
 
     def write_protocol_snapshot(self, config: Dict[str, Any]) -> Path:
         """
-        Write protocol snapshot to reports/protocol_snapshot.md.
+        将协议快照写入 reports/protocol_snapshot.md
         
-        The snapshot contains:
-        - Protocol and schema versions
-        - Git commit hash
-        - Timestamp
-        - Frozen configuration parameters
-        - A2 strength contract summary
+        快照包含:
+        - 协议和 schema 版本
+        - Git 提交哈希
+        - 时间戳
+        - 冻结的配置参数
+        - A2 强度契约摘要
         
         Args:
-            config: Complete experiment configuration
+            config: 完整的实验配置
             
         Returns:
-            Path to the written snapshot file
+            写入的快照文件路径
         """
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         snapshot_path = self.reports_dir / "protocol_snapshot.md"
@@ -95,83 +95,83 @@ class ProtocolManager:
         return snapshot_path
     
     def _generate_snapshot(self, config: Dict[str, Any]) -> str:
-        """Generate protocol snapshot markdown content."""
+        """生成协议快照 markdown 内容"""
         git_commit = self._get_git_commit()
         timestamp = datetime.now().isoformat()
         config_hash = self._compute_config_hash(config)
         
-        snapshot = f"""# Protocol Snapshot
+        snapshot = f"""# 协议快照
 
-> **Generated**: {timestamp}
-> **Protocol Version**: {self.PROTOCOL_VERSION}
-> **Schema Version**: {self.SCHEMA_VERSION}
-> **Git Commit**: {git_commit}
-> **Config Hash**: {config_hash}
+> **生成时间**: {timestamp}
+> **协议版本**: {self.PROTOCOL_VERSION}
+> **Schema 版本**: {self.SCHEMA_VERSION}
+> **Git 提交**: {git_commit}
+> **配置哈希**: {config_hash}
 
-## Version Consistency
+## 版本一致性
 
-| Component | Version |
+| 组件 | 版本 |
 |-----------|---------|
-| Protocol | {self.PROTOCOL_VERSION} |
+| 协议 | {self.PROTOCOL_VERSION} |
 | Schema | {self.SCHEMA_VERSION} |
-| Design Doc | v{self.PROTOCOL_VERSION} |
+| 设计文档 | v{self.PROTOCOL_VERSION} |
 
-## Frozen Parameters
+## 冻结参数
 
-### Privacy Levels (§2.3)
+### 隐私级别 (§2.3)
 ```
 λ ∈ {{0.0, 0.3, 0.5, 0.7, 1.0}}
 ```
 
-### Threat Levels (§2.4)
+### 威胁级别 (§2.4)
 ```
 threat_level ∈ {{A0, A1, A2}}
 ```
 
-### Training Modes (§8.1)
+### 训练模式 (§8.1)
 ```
 training_mode ∈ {{P2P, P2Z, Z2Z, Mix2Z}}
 ```
 
-### Attack Types (§6.1)
+### 攻击类型 (§6.1)
 ```
 attack_type ∈ {{face_verification, attribute_inference, reconstruction, membership_inference, property_inference}}
 ```
 
-## A2 Strength Contract (§5.4)
+## A2 强度契约 (§5.4)
 
-### Attack Families
-| Family | Min Instances |
+### 攻击族
+| 族 | 最小实例数 |
 |--------|---------------|
-| Reconstruction | 2 |
-| Inference | 3 |
-| Optimization | 2 |
+| 重建 | 2 |
+| 推断 | 3 |
+| 优化 | 2 |
 
-### Attack Budget
-| Parameter | Value |
+### 攻击预算
+| 参数 | 值 |
 |-----------|-------|
-| Training epochs | 100 |
-| LR search | {{1e-4, 1e-3, 1e-2}} |
-| Max GPU time | ≤24h/family |
+| 训练轮数 | 100 |
+| 学习率搜索 | {{1e-4, 1e-3, 1e-2}} |
+| 最大 GPU 时间 | ≤24h/族 |
 
-### Worst-case Aggregation
+### 最坏情况聚合
 ```
 worst_case_attack_success = max(attack_success) over same (dataset, task, privacy_level, threat_level)
 ```
 
-## Configuration Summary
+## 配置摘要
 
 ```yaml
 {self._format_config_summary(config)}
 ```
 
 ---
-*This snapshot is frozen. Any modification requires protocol_version bump.*
+*此快照已冻结。任何修改都需要升级 protocol_version。*
 """
         return snapshot
     
     def _get_git_commit(self) -> str:
-        """Get current git commit hash."""
+        """获取当前 git 提交哈希"""
         try:
             result = subprocess.run(
                 ['git', 'rev-parse', 'HEAD'],
@@ -186,13 +186,13 @@ worst_case_attack_success = max(attack_success) over same (dataset, task, privac
         return "unknown"
     
     def _compute_config_hash(self, config: Dict[str, Any]) -> str:
-        """Compute SHA256 hash of configuration."""
+        """计算配置的 SHA256 哈希"""
         config_str = json.dumps(config, sort_keys=True, default=str)
         return hashlib.sha256(config_str.encode()).hexdigest()[:16]
     
     def _format_config_summary(self, config: Dict[str, Any]) -> str:
-        """Format configuration for snapshot."""
-        # Extract key parameters
+        """格式化配置用于快照"""
+        # 提取关键参数
         summary_keys = [
             'dataset', 'task', 'method', 'seed', 
             'privacy_levels', 'training_modes', 'attack_types'
@@ -202,7 +202,7 @@ worst_case_attack_success = max(attack_success) over same (dataset, task, privac
             if key in config:
                 summary[key] = config[key]
         
-        # Format as YAML-like string
+        # 格式化为类 YAML 字符串
         lines = []
         for key, value in summary.items():
             if isinstance(value, list):
@@ -212,73 +212,73 @@ worst_case_attack_success = max(attack_success) over same (dataset, task, privac
             else:
                 lines.append(f"{key}: {value}")
         
-        return '\n'.join(lines) if lines else "# No configuration provided"
+        return '\n'.join(lines) if lines else "# 未提供配置"
 
     def validate_consistency(self, config: Optional[Dict[str, Any]] = None) -> bool:
         """
-        Validate configuration and protocol snapshot consistency.
+        验证配置和协议快照的一致性
         
-        Checks:
+        检查:
         1. protocol_version == schema_version
-        2. protocol_snapshot.md exists and matches config (if provided)
-        3. meta/protocol_version.txt matches PROTOCOL_VERSION
+        2. protocol_snapshot.md 存在且与配置匹配（如果提供）
+        3. meta/protocol_version.txt 与 PROTOCOL_VERSION 匹配
         
         Args:
-            config: Optional configuration to validate against snapshot
+            config: 可选的配置，用于与快照验证
             
         Returns:
-            True if all consistency checks pass
+            如果所有一致性检查通过则返回 True
             
         Raises:
-            ProtocolVersionMismatchError: If versions don't match
-            ProtocolError: If snapshot is missing or inconsistent
+            ProtocolVersionMismatchError: 如果版本不匹配
+            ProtocolError: 如果快照缺失或不一致
         """
-        # Check 1: protocol_version == schema_version
+        # 检查 1: protocol_version == schema_version
         if self.PROTOCOL_VERSION != self.SCHEMA_VERSION:
             raise ProtocolVersionMismatchError(
-                f"Protocol version ({self.PROTOCOL_VERSION}) != "
-                f"Schema version ({self.SCHEMA_VERSION})"
+                f"协议版本 ({self.PROTOCOL_VERSION}) != "
+                f"Schema 版本 ({self.SCHEMA_VERSION})"
             )
         
-        # Check 2: protocol_version.txt exists and matches
+        # 检查 2: protocol_version.txt 存在且匹配
         version_file = self.meta_dir / "protocol_version.txt"
         if version_file.exists():
             stored_version = version_file.read_text().strip()
             if stored_version != self.PROTOCOL_VERSION:
                 raise ProtocolVersionMismatchError(
-                    f"Stored protocol version ({stored_version}) != "
-                    f"Current version ({self.PROTOCOL_VERSION})"
+                    f"存储的协议版本 ({stored_version}) != "
+                    f"当前版本 ({self.PROTOCOL_VERSION})"
                 )
         
-        # Check 3: protocol_snapshot.md exists
+        # 检查 3: protocol_snapshot.md 存在
         snapshot_path = self.reports_dir / "protocol_snapshot.md"
         if not snapshot_path.exists():
             raise ProtocolError(
-                f"Missing protocol_snapshot.md at {snapshot_path}"
+                f"缺少 protocol_snapshot.md: {snapshot_path}"
             )
         
-        # Check 4: If config provided, verify hash matches
+        # 检查 4: 如果提供了配置，验证哈希匹配
         if config is not None:
             snapshot_content = snapshot_path.read_text(encoding='utf-8')
             current_hash = self._compute_config_hash(config)
             
-            # Extract hash from snapshot
+            # 从快照中提取哈希
             if f"Config Hash**: {current_hash}" not in snapshot_content:
-                # Hash mismatch - config has changed
+                # 哈希不匹配 - 配置已更改
                 raise ProtocolError(
-                    f"Configuration hash mismatch. "
-                    f"Current: {current_hash}, "
-                    f"Snapshot may be outdated."
+                    f"配置哈希不匹配。"
+                    f"当前: {current_hash}，"
+                    f"快照可能已过期。"
                 )
         
         return True
     
     def get_version_info(self) -> Dict[str, str]:
         """
-        Get version information dictionary.
+        获取版本信息字典
         
         Returns:
-            Dictionary with protocol_version, schema_version, git_commit
+            包含 protocol_version、schema_version、git_commit 的字典
         """
         return {
             "protocol_version": self.PROTOCOL_VERSION,
@@ -287,7 +287,7 @@ worst_case_attack_success = max(attack_success) over same (dataset, task, privac
         }
     
     def ensure_directories(self) -> None:
-        """Create all required run directories."""
+        """创建所有必需的运行目录"""
         required_dirs = [
             self.meta_dir,
             self.run_dir / "tables",
@@ -301,17 +301,17 @@ worst_case_attack_success = max(attack_success) over same (dataset, task, privac
     @classmethod
     def check_version_bump_needed(cls, change_type: str) -> str:
         """
-        Determine version bump type needed for a change.
+        确定变更所需的版本升级类型
         
         Args:
-            change_type: One of 'schema_field', 'protocol_logic', 'bugfix'
+            change_type: 'schema_field'、'protocol_logic' 或 'bugfix' 之一
             
         Returns:
-            Description of required version bump
+            所需版本升级的描述
         """
         bump_rules = {
-            'schema_field': 'Major (X.0.0) - Schema field additions/deletions',
-            'protocol_logic': 'Minor (0.X.0) - Protocol logic changes',
-            'bugfix': 'Patch (0.0.X) - Bug fixes/documentation clarifications',
+            'schema_field': '主版本 (X.0.0) - Schema 字段添加/删除',
+            'protocol_logic': '次版本 (0.X.0) - 协议逻辑变更',
+            'bugfix': '补丁版本 (0.0.X) - Bug 修复/文档澄清',
         }
-        return bump_rules.get(change_type, 'Unknown change type')
+        return bump_rules.get(change_type, '未知变更类型')

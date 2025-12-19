@@ -1,11 +1,11 @@
 """
-Attack Success Normalizer for Top-Journal Experiment Suite.
+攻击成功率归一化器 - 顶级期刊实验套件。
 
-Implements normalization per design.md §7.3.
-Computes privacy_protection per §7.1.
-Computes summary metrics per §7.4.
+实现 design.md §7.3 中的归一化方法。
+计算 §7.1 中的隐私保护度。
+计算 §7.4 中的汇总指标。
 
-**Validates: Requirements §7.3, §7.4**
+**验证: 需求 §7.3, §7.4**
 """
 
 from dataclasses import dataclass, field
@@ -16,32 +16,32 @@ import numpy as np
 from .attack_framework import AttackType, ThreatLevel
 
 
-# Normalization bounds per attack type (frozen per §7.3)
+# 每种攻击类型的归一化边界（按 §7.3 冻结）
 NORMALIZATION_BOUNDS = {
     AttackType.FACE_VERIFICATION: {
-        'lower': 'random',  # Random guess TAR
-        'upper': 'p2p',     # P2P mode TAR
-        'random_value': 0.001,  # TAR@FAR=1e-3 for random
+        'lower': 'random',  # 随机猜测 TAR
+        'upper': 'p2p',     # P2P 模式 TAR
+        'random_value': 0.001,  # 随机情况下的 TAR@FAR=1e-3
     },
     AttackType.ATTRIBUTE_INFERENCE: {
-        'lower': 0.5,       # Random guess AUC
-        'upper': 'p2p',     # P2P mode AUC
+        'lower': 0.5,       # 随机猜测 AUC
+        'upper': 'p2p',     # P2P 模式 AUC
     },
     AttackType.RECONSTRUCTION: {
         'lower': 0.0,       # Completely dissimilar
         'upper': 'p2p',     # P2P mode similarity
     },
     AttackType.MEMBERSHIP_INFERENCE: {
-        'lower': 0.5,       # Random guess AUC
-        'upper': 'p2p',     # P2P mode AUC
+        'lower': 0.5,       # 随机猜测 AUC
+        'upper': 'p2p',     # P2P 模式 AUC
     },
     AttackType.PROPERTY_INFERENCE: {
-        'lower': 0.5,       # Random guess AUC
-        'upper': 'p2p',     # P2P mode AUC
+        'lower': 0.5,       # 随机猜测 AUC
+        'upper': 'p2p',     # P2P 模式 AUC
     },
 }
 
-# Threat level weights for weighted privacy protection (frozen per §7.4)
+# 加权隐私保护的威胁级别权重（按 §7.4 冻结）
 THREAT_LEVEL_WEIGHTS = {
     ThreatLevel.A0: 0.2,
     ThreatLevel.A1: 0.3,
@@ -51,7 +51,7 @@ THREAT_LEVEL_WEIGHTS = {
 
 @dataclass
 class NormalizationResult:
-    """Result of attack success normalization."""
+    """攻击成功率归一化结果。"""
     attack_type: AttackType
     raw_attack_success: float
     normalized_attack_success: float
@@ -62,7 +62,7 @@ class NormalizationResult:
 
 @dataclass
 class PrivacySummary:
-    """Summary privacy metrics per §7.4."""
+    """按 §7.4 的汇总隐私指标。"""
     avg_privacy_protection: float
     worst_case_privacy_protection: float
     weighted_privacy_protection: float
@@ -72,31 +72,31 @@ class PrivacySummary:
 
 class AttackNormalizer:
     """
-    Normalizes attack success values for cross-attack comparability.
+    归一化攻击成功率以实现跨攻击可比性。
     
-    Normalization formulas per §7.3:
+    按 §7.3 的归一化公式：
     - face_verification: (x - x_random) / (x_P2P - x_random)
     - attribute_inference: (x - 0.5) / (x_P2P - 0.5)
     - reconstruction: x / x_P2P
     - membership_inference: (x - 0.5) / (x_P2P - 0.5)
     - property_inference: (x - 0.5) / (x_P2P - 0.5)
     
-    Normalized range: [0, 1]
-    - 0 = complete protection
-    - 1 = no protection (equivalent to P2P)
+    归一化范围: [0, 1]
+    - 0 = 完全保护
+    - 1 = 无保护（等同于 P2P）
     """
     
     def __init__(self, p2p_baselines: Dict[AttackType, float] = None):
         """
-        Initialize normalizer.
+        初始化归一化器。
         
-        Args:
-            p2p_baselines: P2P baseline values for each attack type
+        参数:
+            p2p_baselines: 每种攻击类型的 P2P 基线值
         """
         self.p2p_baselines = p2p_baselines or {}
     
     def set_p2p_baseline(self, attack_type: AttackType, value: float) -> None:
-        """Set P2P baseline for an attack type."""
+        """设置某攻击类型的 P2P 基线。"""
         self.p2p_baselines[attack_type] = value
     
     def normalize(
@@ -106,22 +106,22 @@ class AttackNormalizer:
         p2p_value: Optional[float] = None,
     ) -> NormalizationResult:
         """
-        Normalize attack success value.
+        归一化攻击成功率值。
         
-        Args:
-            attack_type: Type of attack
-            attack_success: Raw attack success value
-            p2p_value: P2P baseline (uses stored if not provided)
+        参数:
+            attack_type: 攻击类型
+            attack_success: 原始攻击成功率值
+            p2p_value: P2P 基线（如果未提供则使用存储的值）
             
-        Returns:
-            NormalizationResult with normalized value and privacy_protection
+        返回:
+            包含归一化值和 privacy_protection 的 NormalizationResult
         """
-        # Get P2P baseline
+        # 获取 P2P 基线
         if p2p_value is None:
             p2p_value = self.p2p_baselines.get(attack_type)
         
         if p2p_value is None:
-            # Default P2P values if not provided
+            # 如果未提供则使用默认 P2P 值
             default_p2p = {
                 AttackType.FACE_VERIFICATION: 0.9,
                 AttackType.ATTRIBUTE_INFERENCE: 0.95,
@@ -131,7 +131,7 @@ class AttackNormalizer:
             }
             p2p_value = default_p2p.get(attack_type, 1.0)
         
-        # Get bounds
+        # 获取边界
         bounds = NORMALIZATION_BOUNDS.get(attack_type, {})
         lower = bounds.get('lower', 0.0)
         
@@ -142,15 +142,15 @@ class AttackNormalizer:
         
         upper = p2p_value
         
-        # Normalize based on attack type
+        # 根据攻击类型归一化
         normalized = self._normalize_value(
             attack_type, attack_success, lower, upper
         )
         
-        # Clamp to [0, 1]
+        # 限制到 [0, 1]
         normalized = max(0.0, min(1.0, normalized))
         
-        # Compute privacy protection
+        # 计算隐私保护
         privacy_protection = 1.0 - normalized
         
         return NormalizationResult(
@@ -169,7 +169,7 @@ class AttackNormalizer:
         lower: float,
         upper: float,
     ) -> float:
-        """Apply normalization formula based on attack type."""
+        """根据攻击类型应用归一化公式。"""
         if attack_type == AttackType.FACE_VERIFICATION:
             # (x - x_random) / (x_P2P - x_random)
             if upper - lower == 0:
@@ -205,17 +205,17 @@ class AttackNormalizer:
         p2p_value: Optional[float] = None,
     ) -> float:
         """
-        Compute privacy protection score.
+        计算隐私保护分数。
         
         privacy_protection = 1 - normalized(attack_success)
         
-        Args:
-            attack_type: Type of attack
-            attack_success: Raw attack success value
-            p2p_value: P2P baseline
+        参数:
+            attack_type: 攻击类型
+            attack_success: 原始攻击成功率值
+            p2p_value: P2P 基线
             
-        Returns:
-            Privacy protection score in [0, 1]
+        返回:
+            [0, 1] 范围内的隐私保护分数
         """
         result = self.normalize(attack_type, attack_success, p2p_value)
         return result.privacy_protection
@@ -226,14 +226,14 @@ class AttackNormalizer:
         threat_levels: Optional[List[ThreatLevel]] = None,
     ) -> PrivacySummary:
         """
-        Compute summary privacy metrics per §7.4.
+        按 §7.4 计算汇总隐私指标。
         
-        Args:
-            results: List of normalization results
-            threat_levels: Corresponding threat levels (for weighted)
+        参数:
+            results: 归一化结果列表
+            threat_levels: 对应的威胁级别（用于加权）
             
-        Returns:
-            PrivacySummary with avg, worst-case, and weighted metrics
+        返回:
+            包含平均、最坏情况和加权指标的 PrivacySummary
         """
         if not results:
             return PrivacySummary(
@@ -244,13 +244,13 @@ class AttackNormalizer:
         
         privacy_values = [r.privacy_protection for r in results]
         
-        # Average privacy protection (uniform weights)
+        # 平均隐私保护（均匀权重）
         avg_pp = float(np.mean(privacy_values))
         
-        # Worst-case privacy protection (minimum)
+        # 最坏情况隐私保护（最小值）
         worst_pp = float(np.min(privacy_values))
         
-        # Weighted privacy protection by threat level
+        # 按威胁级别加权的隐私保护
         if threat_levels and len(threat_levels) == len(results):
             weighted_sum = 0.0
             weight_sum = 0.0
@@ -262,7 +262,7 @@ class AttackNormalizer:
         else:
             weighted_pp = avg_pp
         
-        # Per attack type
+        # 按攻击类型
         per_attack = {}
         for attack_type in AttackType:
             type_results = [r for r in results if r.attack_type == attack_type]
@@ -271,7 +271,7 @@ class AttackNormalizer:
                     [r.privacy_protection for r in type_results]
                 ))
         
-        # Per threat level
+        # 按威胁级别
         per_threat = {}
         if threat_levels:
             for threat in ThreatLevel:
@@ -298,18 +298,18 @@ def normalize_attack_results(
     p2p_baselines: Dict[str, float],
 ) -> List[Dict]:
     """
-    Normalize a list of attack result dictionaries.
+    归一化攻击结果字典列表。
     
-    Args:
-        attack_results: List of attack result dicts with 'attack_type' and 'attack_success'
-        p2p_baselines: P2P baseline values keyed by attack_type string
+    参数:
+        attack_results: 包含 'attack_type' 和 'attack_success' 的攻击结果字典列表
+        p2p_baselines: 按 attack_type 字符串键控的 P2P 基线值
         
-    Returns:
-        List of dicts with added 'normalized_attack_success' and 'privacy_protection'
+    返回:
+        添加了 'normalized_attack_success' 和 'privacy_protection' 的字典列表
     """
     normalizer = AttackNormalizer()
     
-    # Set baselines
+    # 设置基线
     for attack_type_str, value in p2p_baselines.items():
         try:
             attack_type = AttackType(attack_type_str)

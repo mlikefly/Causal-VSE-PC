@@ -1,14 +1,14 @@
 """
-Attack implementations for Top-Journal Experiment Suite.
+顶级期刊实验套件的攻击实现。
 
-Implements 5 attack types per design.md §6.1:
-1. Face Verification Attack
-2. Attribute Inference Attack
-3. Reconstruction Attack
-4. Membership Inference Attack
-5. Property Inference Attack
+按 design.md §6.1 实现 5 种攻击类型：
+1. 人脸验证攻击
+2. 属性推断攻击
+3. 重建攻击
+4. 成员推断攻击
+5. 属性推断攻击
 
-Plus A2 Adaptive Attacker per §6.3.
+以及按 §6.3 的 A2 自适应攻击器。
 """
 
 from .face_verification import FaceVerificationAttack

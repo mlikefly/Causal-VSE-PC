@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\core\replay_cache.py
+# hypothesis_version: 6.148.7
+
+[0.0, 1.0, 'ReplayCache', 'accept_count', 'entries', 'fail', 'image_id', 'key_id', 'meta', 'nonce_hex', 'pass', 'purpose', 'r', 'reject_count', 'reject_rate', 'replay_attempts', 'replay_cache.json', 'replay_detection', 'status', 'tag_hex', 'test_type', 'timestamp', 'total_checks', 'unique_ciphertexts', 'utf-8', 'w']

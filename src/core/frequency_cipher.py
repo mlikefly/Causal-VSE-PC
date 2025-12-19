@@ -348,6 +348,10 @@ class FrequencySemanticCipherOptimized(nn.Module):
         key_rad = (H, mag.size(-1), str(device))
         if key_rad in self._radial_cache:
             radial_bins = self._radial_cache[key_rad]
+            # 确保缓存的 radial_bins 在正确的设备上
+            if radial_bins.device != device:
+                radial_bins = radial_bins.to(device)
+                self._radial_cache[key_rad] = radial_bins
         else:
             y_r, x_r = torch.meshgrid(torch.arange(H, device=device), torch.arange(mag.size(-1), device=device), indexing='ij')
             cy_r = H // 2
@@ -359,6 +363,8 @@ class FrequencySemanticCipherOptimized(nn.Module):
             self._radial_cache[key_rad] = radial_bins
         # radial gains 映射到二维图
         gains_vec = torch.nn.functional.softplus(self.radial_gains)
+        # 确保 gains_vec 和 radial_bins 在同一设备上
+        gains_vec = gains_vec.to(device)
         gains_map = gains_vec[radial_bins]  # [H, W/2+1]
         gains_map = gains_map.view(1, 1, *gains_map.shape)
 
@@ -498,6 +504,10 @@ class FrequencySemanticCipherOptimized(nn.Module):
             key_rad = (H, spec.size(-1), str(device))
             if key_rad in self._radial_cache:
                 radial_bins = self._radial_cache[key_rad]
+                # 确保缓存的 radial_bins 在正确的设备上
+                if radial_bins.device != device:
+                    radial_bins = radial_bins.to(device)
+                    self._radial_cache[key_rad] = radial_bins
             else:
                 y_r, x_r = torch.meshgrid(torch.arange(H, device=device), torch.arange(spec.size(-1), device=device), indexing='ij')
                 cy_r = H // 2
@@ -510,6 +520,7 @@ class FrequencySemanticCipherOptimized(nn.Module):
                 gains_vec = torch.clamp(gains_vec, min=1e-6)
             else:
                 gains_vec = torch.nn.functional.softplus(self.radial_gains)
+                gains_vec = gains_vec.to(device)  # 确保设备一致
             gains_map = gains_vec[radial_bins].view(1, 1, H, spec.size(-1))
             band_strength = (low_mask * low_s + high_mask * high_s) * gains_map
             # 与加密保持一致：0.4缩放因子

@@ -1,11 +1,11 @@
 """
-A2 Adaptive Attacker implementation.
+A2 自适应攻击器实现。
 
-White-box adaptive attacker per design.md §6.3.
-Implements A2 strength contract per §5.4.
+按 design.md §6.3 实现白盒自适应攻击器。
+按 §5.4 实现 A2 强度契约。
 
-**Validates: Property 14 - A2 攻击强制存在**
-**Validates: Requirements 16.1, 16.3, 16.5**
+**验证: 属性 14 - A2 攻击强制存在**
+**需求: 16.1, 16.3, 16.5**
 """
 
 from dataclasses import dataclass, field
@@ -27,24 +27,24 @@ from ..attack_framework import (
 @dataclass
 class A2StrengthContract:
     """
-    A2 Strength Contract (frozen per §5.4).
+    A2 强度契约（按 §5.4 冻结）。
     
-    Ensures A2 attacks are auditable, reproducible, and not cherry-picked.
+    确保 A2 攻击可审计、可复现且非挑选性。
     """
     
-    # Attack families (§5.4.1)
+    # 攻击族（§5.4.1）
     attack_families: Dict[str, List[str]] = field(default_factory=lambda: {
         'reconstruction': ['unet_decoder', 'gan_inversion'],
         'inference': ['linear_probe', 'mlp_classifier', 'contrastive_learning'],
         'optimization': ['gradient_based', 'evolutionary_search'],
     })
     
-    # Attack budget (§5.4.2)
+    # 攻击预算（§5.4.2）
     max_epochs: int = 100
     lr_search: List[float] = field(default_factory=lambda: [1e-4, 1e-3, 1e-2])
     max_gpu_hours_per_family: int = 24
     
-    # Minimum instantiations per family
+    # 每个攻击族的最小实例化数量
     min_instantiations: Dict[str, int] = field(default_factory=lambda: {
         'reconstruction': 2,
         'inference': 3,
@@ -52,7 +52,7 @@ class A2StrengthContract:
     })
     
     def validate(self, attack_config: Dict) -> bool:
-        """Validate attack configuration against contract."""
+        """验证攻击配置是否符合契约。"""
         family = attack_config.get('family')
         if family not in self.attack_families:
             return False
@@ -70,7 +70,7 @@ class A2StrengthContract:
 
 @dataclass
 class AdaptiveStrategy:
-    """Adaptive attack strategy."""
+    """自适应攻击策略。"""
     mask_analysis: Dict[str, Any] = field(default_factory=dict)
     budget_analysis: Dict[str, Any] = field(default_factory=dict)
     attack_loss: Optional[str] = None
@@ -79,18 +79,18 @@ class AdaptiveStrategy:
 
 class AdaptiveAttacker(AttackBase):
     """
-    A2 White-box Adaptive Attacker.
+    A2 白盒自适应攻击器。
     
-    Attacker capabilities (per §6.3):
-    - Knows complete algorithm (encryption flow, mask generation, budget allocation)
-    - Knows model structure (but not training weights)
-    - Cannot access encryption key
-    - Can design adaptive attack strategies
+    攻击者能力（按 §6.3）：
+    - 知道完整算法（加密流程、掩码生成、预算分配）
+    - 知道模型结构（但不知道训练权重）
+    - 无法访问加密密钥
+    - 可以设计自适应攻击策略
     
-    This class wraps other attacks with A2-level knowledge.
+    此类用 A2 级别知识包装其他攻击。
     """
     
-    attack_type = None  # Set dynamically based on wrapped attack
+    attack_type = None  # 根据包装的攻击动态设置
     
     def __init__(
         self,
@@ -99,12 +99,12 @@ class AdaptiveAttacker(AttackBase):
         attack_type: AttackType = AttackType.ATTRIBUTE_INFERENCE,
     ):
         """
-        Initialize adaptive attacker.
+        初始化自适应攻击器。
         
-        Args:
-            device: Compute device
-            base_attack: Base attack to enhance with A2 knowledge
-            attack_type: Type of attack to perform
+        参数:
+            device: 计算设备
+            base_attack: 要用 A2 知识增强的基础攻击
+            attack_type: 要执行的攻击类型
         """
         super().__init__(device)
         self.base_attack = base_attack
@@ -128,56 +128,56 @@ class AdaptiveAttacker(AttackBase):
         budget_allocator=None,
     ) -> AdaptiveStrategy:
         """
-        Design adaptive attack strategy using algorithm knowledge.
+        使用算法知识设计自适应攻击策略。
         
-        Per §6.3, the attacker can:
-        1. Analyze mask generation logic to find semantic-preserving regions
-        2. Analyze budget allocation rules to find low-protection regions
-        3. Design targeted loss functions
+        按 §6.3，攻击者可以：
+        1. 分析掩码生成逻辑以找到语义保留区域
+        2. 分析预算分配规则以找到低保护区域
+        3. 设计针对性损失函数
         
-        Args:
-            algorithm_info: Information about the encryption algorithm
-            mask_generator: Semantic mask generator (if available)
-            budget_allocator: Budget allocator (if available)
+        参数:
+            algorithm_info: 关于加密算法的信息
+            mask_generator: 语义掩码生成器（如果可用）
+            budget_allocator: 预算分配器（如果可用）
             
-        Returns:
-            AdaptiveStrategy with attack plan
+        返回:
+            包含攻击计划的 AdaptiveStrategy
         """
         self.algorithm_info = algorithm_info
         
         strategy = AdaptiveStrategy()
         
-        # Analyze mask patterns
+        # 分析掩码模式
         if mask_generator is not None:
             strategy.mask_analysis = self._analyze_mask_patterns(mask_generator)
         
-        # Analyze budget patterns
+        # 分析预算模式
         if budget_allocator is not None:
             strategy.budget_analysis = self._analyze_budget_patterns(budget_allocator)
         
-        # Design adaptive loss
+        # 设计自适应损失
         strategy.attack_loss = self._design_adaptive_loss(algorithm_info)
         
-        # Generate strategy description
+        # 生成策略描述
         strategy.strategy_description = self._generate_strategy_description(strategy)
         
         self.adaptive_strategy = strategy
         return strategy
     
     def _analyze_mask_patterns(self, mask_generator) -> Dict[str, Any]:
-        """Analyze mask generation patterns."""
+        """分析掩码生成模式。"""
         analysis = {
             'semantic_regions': [],
             'preservation_regions': [],
             'vulnerability_regions': [],
         }
         
-        # Extract information about mask generation
+        # 提取掩码生成信息
         if hasattr(mask_generator, 'region_names'):
             analysis['semantic_regions'] = mask_generator.region_names
         
         if hasattr(mask_generator, 'preservation_weights'):
-            # Find regions with high preservation (low protection)
+            # 找到高保留（低保护）的区域
             weights = mask_generator.preservation_weights
             for region, weight in weights.items():
                 if weight > 0.5:
@@ -188,7 +188,7 @@ class AdaptiveAttacker(AttackBase):
         return analysis
     
     def _analyze_budget_patterns(self, budget_allocator) -> Dict[str, Any]:
-        """Analyze budget allocation patterns."""
+        """分析预算分配模式。"""
         analysis = {
             'low_budget_regions': [],
             'high_budget_regions': [],
@@ -208,18 +208,18 @@ class AdaptiveAttacker(AttackBase):
         return analysis
     
     def _design_adaptive_loss(self, algorithm_info: Dict) -> str:
-        """Design adaptive loss function based on algorithm knowledge."""
+        """基于算法知识设计自适应损失函数。"""
         loss_components = []
         
-        # If we know about frequency domain processing
+        # 如果知道使用频域处理
         if algorithm_info.get('uses_frequency_domain'):
             loss_components.append('frequency_reconstruction_loss')
         
-        # If we know about chaotic scrambling
+        # 如果知道使用混沌置乱
         if algorithm_info.get('uses_chaotic_scrambling'):
             loss_components.append('inverse_scrambling_loss')
         
-        # If we know about semantic preservation
+        # 如果知道保留语义
         if algorithm_info.get('preserves_semantics'):
             loss_components.append('semantic_extraction_loss')
         
@@ -229,43 +229,43 @@ class AdaptiveAttacker(AttackBase):
         return ' + '.join(loss_components)
     
     def _generate_strategy_description(self, strategy: AdaptiveStrategy) -> str:
-        """Generate human-readable strategy description."""
-        desc = ["A2 Adaptive Attack Strategy:"]
+        """生成人类可读的策略描述。"""
+        desc = ["A2 自适应攻击策略:"]
         
         if strategy.mask_analysis.get('vulnerability_regions'):
-            desc.append(f"- Target vulnerable regions: {strategy.mask_analysis['vulnerability_regions']}")
+            desc.append(f"- 目标脆弱区域: {strategy.mask_analysis['vulnerability_regions']}")
         
         if strategy.budget_analysis.get('low_budget_regions'):
-            desc.append(f"- Exploit low-budget regions: {strategy.budget_analysis['low_budget_regions']}")
+            desc.append(f"- 利用低预算区域: {strategy.budget_analysis['low_budget_regions']}")
         
         if strategy.attack_loss:
-            desc.append(f"- Custom loss: {strategy.attack_loss}")
+            desc.append(f"- 自定义损失: {strategy.attack_loss}")
         
         return '\n'.join(desc)
     
     def fit(self, ctx: AttackFitContext, **kwargs) -> None:
         """
-        Train adaptive attack.
+        训练自适应攻击。
         
-        Args:
-            ctx: Attack training context (must be A2)
-            **kwargs: Training data and algorithm info
+        参数:
+            ctx: 攻击训练上下文（必须是 A2）
+            **kwargs: 训练数据和算法信息
         """
-        # Validate A2 requirement
+        # 验证 A2 要求
         if ctx.threat_level != ThreatLevel.A2:
             raise ValueError(
-                f"AdaptiveAttacker requires threat_level=A2, got {ctx.threat_level}"
+                f"AdaptiveAttacker 需要 threat_level=A2，得到 {ctx.threat_level}"
             )
         
-        # A2 must use full strength (GC10)
+        # A2 必须使用完整强度（GC10）
         if ctx.attacker_strength != AttackerStrength.FULL:
             raise ValueError(
-                "A2 attacks must use attacker_strength=full (GC10)"
+                "A2 攻击必须使用 attacker_strength=full（GC10）"
             )
         
         self.fit_context = ctx
         
-        # Design adaptive strategy if algorithm info provided
+        # 如果提供了算法信息，设计自适应策略
         algorithm_info = kwargs.get('algorithm_info', {})
         mask_generator = kwargs.get('mask_generator')
         budget_allocator = kwargs.get('budget_allocator')
@@ -275,7 +275,7 @@ class AdaptiveAttacker(AttackBase):
                 algorithm_info, mask_generator, budget_allocator
             )
         
-        # Train base attack with adaptive enhancements
+        # 使用自适应增强训练基础攻击
         if self.base_attack is not None:
             self.base_attack.fit(ctx, **kwargs)
         
@@ -283,27 +283,27 @@ class AdaptiveAttacker(AttackBase):
     
     def evaluate(self, ctx: AttackEvalContext, **kwargs) -> AttackResult:
         """
-        Evaluate adaptive attack.
+        评估自适应攻击。
         
-        Args:
-            ctx: Evaluation context
-            **kwargs: Evaluation data
+        参数:
+            ctx: 评估上下文
+            **kwargs: 评估数据
             
-        Returns:
-            AttackResult with A2 threat level
+        返回:
+            具有 A2 威胁级别的 AttackResult
         """
         if ctx.threat_level != ThreatLevel.A2:
             raise ValueError(
-                f"AdaptiveAttacker requires threat_level=A2, got {ctx.threat_level}"
+                f"AdaptiveAttacker 需要 threat_level=A2，得到 {ctx.threat_level}"
             )
         
         if self.base_attack is not None:
             result = self.base_attack.evaluate(ctx, **kwargs)
-            # Override threat level to A2
+            # 覆盖威胁级别为 A2
             result.threat_level = ThreatLevel.A2
             return result
         
-        # Default result if no base attack
+        # 如果没有基础攻击，返回默认结果
         return AttackResult(
             attack_type=self._attack_type,
             threat_level=ThreatLevel.A2,
@@ -315,7 +315,7 @@ class AdaptiveAttacker(AttackBase):
         )
     
     def get_strategy_report(self) -> Dict[str, Any]:
-        """Get report of adaptive strategy for audit."""
+        """获取自适应策略报告用于审计。"""
         return {
             'threat_level': 'A2',
             'attacker_strength': 'full',
@@ -339,28 +339,28 @@ def compute_worst_case_attack_success(
     group_by: List[str] = None,
 ) -> Dict[str, float]:
     """
-    Compute worst-case attack success per §5.4.3.
+    按 §5.4.3 计算最坏情况攻击成功率。
     
-    worst_case_attack_success = max(attack_success) over all attacks
-    in same (dataset, task, privacy_level, threat_level)
+    worst_case_attack_success = max(attack_success)，在相同的
+    (dataset, task, privacy_level, threat_level) 组合中取最大值
     
-    Args:
-        attack_results: List of attack results
-        group_by: Fields to group by (default: dataset, task, privacy_level, threat_level)
+    参数:
+        attack_results: 攻击结果列表
+        group_by: 分组字段（默认: dataset, task, privacy_level, threat_level）
         
-    Returns:
-        Dictionary mapping group key to worst-case attack_success
+    返回:
+        分组键到最坏情况 attack_success 的字典映射
     """
     if group_by is None:
         group_by = ['dataset', 'task', 'privacy_level', 'threat_level']
     
-    # Group results
+    # 分组结果
     groups: Dict[str, List[float]] = {}
     
     for result in attack_results:
         result_dict = result.to_dict()
         
-        # Build group key
+        # 构建分组键
         key_parts = []
         for field in group_by:
             if field in result_dict:
@@ -371,7 +371,7 @@ def compute_worst_case_attack_success(
             groups[key] = []
         groups[key].append(result.attack_success)
     
-    # Compute worst case for each group
+    # 计算每个分组的最坏情况
     worst_case = {}
     for key, values in groups.items():
         worst_case[key] = max(values)

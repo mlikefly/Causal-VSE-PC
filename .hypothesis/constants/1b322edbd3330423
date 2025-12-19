@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\vse_pc\ciphertext_ml.py
+# hypothesis_version: 6.148.7
+
+[0.0, 256, '__main__', 'accuracy', 'classification', 'cpu', 'cuda', 'detection', 'mAP', 'pixel_accuracy', 'segmentation', '✓ 测试完成', '必须提供ML模型（通过参数或初始化）', '测试密文域ML适配器']
