@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\attack_normalizer.py
+# hypothesis_version: 6.148.7
+
+[0.0, 0.001, 0.2, 0.3, 0.33, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0, 'attack_success', 'attack_type', 'lower', 'p2p', 'privacy_protection', 'random', 'random_value', 'upper']

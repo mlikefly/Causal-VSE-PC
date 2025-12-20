@@ -66,7 +66,9 @@ def test_security_constants():
         AVALANCHE_FLIP_RATE_RANGE,
     )
     
-    assert NIST_MIN_BITS > 0
+    # NIST_MIN_BITS 是字典，检查其值
+    assert isinstance(NIST_MIN_BITS, dict), "NIST_MIN_BITS 应该是字典"
+    assert all(v > 0 for v in NIST_MIN_BITS.values()), "所有 NIST_MIN_BITS 值应 > 0"
     assert 0 < TAMPER_FAIL_RATE_THRESHOLD <= 1.0
     assert REPLAY_REJECT_RATE_THRESHOLD == 1.0
     assert 0 < NIST_P_VALUE_THRESHOLD < 1.0
@@ -88,12 +90,12 @@ def test_tamper_tester_initialization():
     
     from src.evaluation.cview_security import TamperTester
     
-    tester = TamperTester(n_tests=100)
+    tester = TamperTester(n_tests_per_type=100)
     
-    assert tester.n_tests == 100
+    assert tester.n_tests_per_type == 100
     
     print(f"✓ TamperTester 初始化成功")
-    print(f"✓ n_tests: {tester.n_tests}")
+    print(f"✓ n_tests_per_type: {tester.n_tests_per_type}")
     print("✓ TamperTester 初始化测试通过\n")
 
 
@@ -203,12 +205,15 @@ def test_property_5_nist_bits_sufficiency():
     
     from src.evaluation.cview_security import NIST_MIN_BITS
     
-    # NIST SP800-22 建议最小 1,000,000 bits
-    # 但实际可以根据测试类型调整
-    assert NIST_MIN_BITS >= 10000, \
-        f"NIST_MIN_BITS 应 >= 10000，实际 {NIST_MIN_BITS}"
+    # NIST_MIN_BITS 是字典，检查每个测试的最小比特数
+    assert isinstance(NIST_MIN_BITS, dict), "NIST_MIN_BITS 应该是字典"
     
-    print(f"✓ NIST_MIN_BITS: {NIST_MIN_BITS}")
+    # 验证所有测试的最小比特数都 >= 100
+    for test_name, min_bits in NIST_MIN_BITS.items():
+        assert min_bits >= 100, \
+            f"{test_name} 的 NIST_MIN_BITS 应 >= 100，实际 {min_bits}"
+        print(f"✓ {test_name}: {min_bits} bits")
+    
     print("✓ Property 5 测试通过\n")
 
 

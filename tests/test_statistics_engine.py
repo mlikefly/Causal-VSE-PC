@@ -114,15 +114,15 @@ def test_bh_fdr_correction():
     # 校正
     result = bh_fdr_correction(p_values, alpha=0.05)
     
-    assert len(result.p_adjusted) == len(p_values)
+    assert len(result.adjusted_p_values) == len(p_values)
     assert len(result.rejected) == len(p_values)
     
     # 校正后的 p 值应该 >= 原始 p 值
-    for orig, adj in zip(p_values, result.p_adjusted):
+    for orig, adj in zip(p_values, result.adjusted_p_values):
         assert adj >= orig, "校正后 p 值应 >= 原始 p 值"
     
     print(f"✓ 原始 p 值: {p_values}")
-    print(f"✓ 校正后 p 值: {[f'{p:.4f}' for p in result.p_adjusted]}")
+    print(f"✓ 校正后 p 值: {[f'{p:.4f}' for p in result.adjusted_p_values]}")
     print(f"✓ 拒绝原假设: {result.rejected}")
     print("✓ BH-FDR 校正测试通过\n")
 
@@ -146,7 +146,7 @@ def test_statistics_engine_compute_ci():
     
     assert result.mean is not None
     assert result.ci_low < result.ci_high
-    assert result.stat_method == "bootstrap"
+    assert "bootstrap" in result.stat_method  # 允许 bootstrap_percentile
     assert result.n_boot >= 500
     
     print(f"✓ Mean: {result.mean:.4f}")
@@ -227,9 +227,9 @@ def test_statistics_validator():
     print("测试统计验证器")
     print("=" * 70)
     
-    from src.evaluation.statistics_engine import StatisticsValidator
+    from src.evaluation.statistics_engine import StatisticsEngine
     
-    validator = StatisticsValidator()
+    engine = StatisticsEngine()
     
     # 有效的统计记录
     valid_record = {
@@ -241,7 +241,7 @@ def test_statistics_validator():
         'family_id': 'abc1234567'
     }
     
-    is_valid, errors = validator.validate_record(valid_record)
+    is_valid, errors = engine.validate_statistical_fields(valid_record)
     assert is_valid, f"有效记录应通过验证: {errors}"
     
     print(f"✓ 有效记录验证通过")
@@ -252,7 +252,7 @@ def test_statistics_validator():
         'n_boot': 100,  # 不足 500
     }
     
-    is_valid, errors = validator.validate_record(invalid_record)
+    is_valid, errors = engine.validate_statistical_fields(invalid_record)
     assert not is_valid, "无效记录应验证失败"
     
     print(f"✓ 无效记录验证失败: {errors}")

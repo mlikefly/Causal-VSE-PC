@@ -1,0 +1,4 @@
+# file: D:\Workspace\Pycharm\Meta-Learning-Adaptive-Encryption\src\evaluation\attack_framework.py
+# hypothesis_version: 6.148.7
+
+[1.0, 500, 'A0', 'A1', 'A2', 'AUC', 'TAR@FAR=1e-3', 'attack_success', 'attack_type', 'attacker_strength', 'attacker_visible', 'attribute_inference', 'auc', 'auroc', 'bootstrap', 'ci_high', 'ci_low', 'cosine_similarity', 'coverage', 'covered_types', 'cpu', 'dataset', 'degrade_reason', 'direction', 'face_similarity', 'face_verification', 'full', 'has_a2', 'identity_sim', 'identity_similarity', 'lite', 'lower_is_better', 'membership_inference', 'method', 'metric', 'metric_name', 'metric_value', 'missing_types', 'n_boot', 'privacy_level', 'property_inference', 'reconstruction', 'roc_auc', 'run_id', 'seed', 'split', 'stat_method', 'status', 'success', 'tar', 'tar_at_far_1e3', 'task', 'test', 'threat_level', 'total_results', 'training_mode', 'verification_rate', '子类必须设置 attack_type']

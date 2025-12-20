@@ -572,6 +572,7 @@ class SCNECipher(nn.Module):
             'tags': wrap_info.get('tags', []),
             'affine_min': wrap_info.get('affine_min', []),
             'affine_scale': wrap_info.get('affine_scale', []),
+            'aad': wrap_info.get('aad'),  # AAD 用于 MAC 验证
             # 审计信息
             'image_id': enc_info.get('image_id'),
             'task_type': enc_info.get('task_type'),
@@ -613,6 +614,7 @@ class SCNECipher(nn.Module):
             'affine_min': binary_pack.get('affine_min', []),
             'affine_scale': binary_pack.get('affine_scale', []),
             'version': binary_pack.get('version', 1),
+            'aad': binary_pack.get('aad'),  # AAD 用于 MAC 验证
         }
         
         c_view_vis = self.cview_from_bytes(c_view_bytes_list, wrap_info, shape, device)
