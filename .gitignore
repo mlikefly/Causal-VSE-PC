@@ -71,7 +71,8 @@ Thumbs.db
 
 # Cursor/Kiro
 .cursor/
-.kiro/
+# .kiro/ 目录保留 specs 文档
+.kiro/settings/
 
 # Project structure doc is tracked
 !PROJECT_STRUCTURE.md
